@@ -1,0 +1,30 @@
+# Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment — NEVER commit secrets
+.env
+.env.local
+application-local.properties
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+data/

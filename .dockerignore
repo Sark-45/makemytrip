@@ -1,0 +1,19 @@
+# Exclude build output — Docker builds inside the container
+target/
+
+# IDE and OS noise
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Git history (not needed in image)
+.git/
+.gitignore
+.gitattributes
+
+# Docs & scripts (not part of the app)
+*.md
+*.zip
+*.docx

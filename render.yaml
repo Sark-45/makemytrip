@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: makemytrip-flight-tracker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+
+    # Environment variables — set MONGODB_URI in Render dashboard
+    envVars:
+      - key: MONGODB_URI
+        sync: false          # Secret: enter value manually in Render UI
+      - key: PORT
+        value: "8080"
+
+    # Health check — Render marks the service healthy once this returns 200
+    healthCheckPath: /api/flights/all
+
+    autoDeploy: true         # Re-deploy on every push to connected branch
