@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MakeMyTrip – Live Flight Tracker & Booking</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #f9f8f6;
+  --border: #e8e4dd;
+  --text: #1c1917;
+  --muted: #78716c;
+  --accent: #dc2626;
+  --accent2: #ea580c;
+  --accent-hover: #b91c1c;
+
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --green-bd: #bbf7d0;
+
+  --amber: #b45309;
+  --amber-bg: #fffbeb;
+  --amber-bd: #fde68a;
+
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --red-bd: #fecaca;
+
+  --blue: #2563eb;
+  --blue-bg: #eff6ff;
+  --blue-bd: #bfdbfe;
+
+  --purple: #7c3aed;
+  --purple-bg: #f5f3ff;
+  --purple-bd: #ddd6fe;
+
+  --orange: #c2410c;
+  --orange-bg: #fff7ed;
+  --orange-bd: #fed7aa;
+
+  --gray-bg: #f5f5f4;
+  --gray-bd: #e7e5e4;
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Header ── */
+header {
+  background: var(--text);
+  padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+}
+.logo-name {
+  font-size: 22px; font-weight: 700; letter-spacing: -0.6px;
+  color: #fff;
+}
+.logo-name span { color: #fb923c; }
+.header-nav { display: flex; align-items: center; gap: 6px; }
+.nav-btn {
+  padding: 7px 16px; border-radius: 8px; border: none;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: rgba(255,255,255,.1); color: rgba(255,255,255,.8);
+  font-family: inherit; transition: all .2s;
+}
+.nav-btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+.nav-btn.active { background: var(--accent); color: #fff; }
+.ws-status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.5);
+}
+.ws-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b7280; transition: background .3s;
+}
+.ws-dot.connected  { background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
+.ws-dot.connecting { background: #fbbf24; animation: blink 1s infinite; }
+.ws-dot.error      { background: #f87171; }
+@keyframes blink { 50% { opacity: .3; } }
+
+/* ── Pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Layout ── */
+.main-wrap {
+  max-width: 1340px; margin: 0 auto; padding: 28px 24px;
+  display: grid; grid-template-columns: 1fr 380px; gap: 24px;
+}
+@media (max-width: 960px) { .main-wrap { grid-template-columns: 1fr; } }
+.page-full { max-width: 1340px; margin: 0 auto; padding: 28px 24px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 9px 20px; border-radius: 9px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all .18s; letter-spacing: .2px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(220,38,38,.35); }
+.btn-primary:active { transform: translateY(0); }
+.btn-outline { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--surface2); color: var(--text); }
+.btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 7px; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #15803d; transform: translateY(-1px); }
+.btn-purple { background: var(--purple); color: #fff; }
+.btn-purple:hover { background: #6d28d9; transform: translateY(-1px); }
+.btn-amber { background: var(--amber); color: #fff; }
+.btn-amber:hover { background: #92400e; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+
+/* ── Inputs ── */
+.input {
+  border: 1.5px solid var(--border); border-radius: 9px;
+  padding: 9px 14px; font-size: 14px; font-family: inherit;
+  color: var(--text); background: var(--surface2);
+  transition: border-color .2s; width: 100%;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.select {
+  border: 1.5px solid var(--border); border-radius: 9px;
+  padding: 9px 14px; font-size: 13px; font-family: inherit;
+  color: var(--text); background: var(--surface2);
+  transition: border-color .2s; width: 100%; cursor: pointer;
+}
+.select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Track bar ── */
+.track-bar {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 16px 20px;
+  margin-bottom: 22px; display: flex; gap: 10px; align-items: center;
+  box-shadow: var(--shadow); flex-wrap: wrap;
+}
+.track-bar input {
+  flex: 1; min-width: 120px; border: 1.5px solid var(--border);
+  border-radius: 9px; padding: 9px 14px; font-size: 14px;
+  font-family: 'Space Mono', monospace; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text); background: var(--surface2); transition: border-color .2s;
+}
+.track-bar input:focus { outline: none; border-color: var(--accent); }
+.track-bar input::placeholder { font-family: inherit; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 13px; }
+.user-input { width: 140px; min-width: 0; flex: none; font-family: 'DM Sans', sans-serif !important; font-size: 13px !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* ── Summary pills ── */
+.summary-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-pill {
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.pill-all      { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+.pill-ontime   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.pill-delayed  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-bd); }
+.pill-boarding { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.pill-departed { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+
+/* ── Flight cards ── */
+#flightGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+}
+.flight-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 20px;
+  box-shadow: var(--shadow); transition: box-shadow .2s, transform .2s;
+  position: relative; overflow: hidden; cursor: pointer;
+}
+.flight-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.flight-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+}
+.card-on-time::before  { background: var(--green); }
+.card-delayed::before  { background: var(--red); }
+.card-boarding::before { background: var(--amber); }
+.card-departed::before { background: var(--blue); }
+.card-landed::before   { background: var(--purple); }
+.card-cancelled::before { background: #a8a29e; }
+@keyframes status-flash { 0% { background: var(--flash-color, #fffde7); } 100% { background: var(--surface); } }
+.card-flash { animation: status-flash 1.8s ease-out; }
+
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.flight-num { font-size: 18px; font-weight: 800; letter-spacing: .5px; font-family: 'Space Mono', monospace; }
+.status-badge {
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+}
+.badge-on-time   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.badge-delayed   { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-bd); }
+.badge-boarding  { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.badge-departed  { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+.badge-landed    { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); }
+.badge-cancelled { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+
+.route { display: flex; align-items: center; margin-bottom: 14px; }
+.airport { text-align: center; }
+.iata { font-size: 26px; font-weight: 800; line-height: 1; font-family: 'Space Mono', monospace; }
+.city { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.route-line { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; padding: 0 10px; }
+.route-track { width: 100%; height: 1.5px; background: var(--border); position: relative; }
+.route-track::after { content: '✈'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-size: 14px; color: var(--accent); }
+.route-label { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.time-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+.time-value { font-size: 15px; font-weight: 700; font-family: 'Space Mono', monospace; }
+.time-orig  { font-size: 11px; color: var(--muted); text-decoration: line-through; }
+.time-new   { font-size: 15px; font-weight: 700; font-family: 'Space Mono', monospace; color: var(--red); }
+
+.delay-bar {
+  background: var(--red-bg); border: 1px solid var(--red-bd);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;
+  font-size: 12px; color: var(--red); display: none; align-items: center; gap: 6px;
+}
+.delay-bar.visible { display: flex; }
+
+/* Price tag on card */
+.price-tag {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
+  font-size: 12px;
+}
+.price-current { font-size: 17px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; }
+.price-original { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+.price-surge { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+.price-drop { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+.price-frozen { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: var(--muted); border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.card-actions { display: flex; gap: 6px; align-items: center; }
+.countdown { font-weight: 600; color: var(--text); }
+.countdown.urgent { color: var(--red); }
+.remove-btn, .book-btn, .history-btn, .freeze-btn {
+  background: none; border: 1px solid var(--border); font-size: 12px;
+  cursor: pointer; color: var(--muted); padding: 3px 9px;
+  border-radius: 5px; transition: all .15s; font-family: inherit; font-weight: 500;
+}
+.remove-btn:hover { background: var(--red-bg); color: var(--red); border-color: var(--red-bd); }
+.book-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.history-btn:hover { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-bd); }
+.freeze-btn:hover { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-bd); }
+
+/* ── Empty state ── */
+.empty-state { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon  { font-size: 48px; margin-bottom: 14px; }
+.empty-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.empty-sub   { font-size: 13px; line-height: 1.6; }
+
+/* ── Sidebar ── */
+.sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Quick chips ── */
+.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip {
+  padding: 4px 10px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 11px; font-family: 'Space Mono', monospace; font-weight: 600;
+  cursor: pointer; color: var(--muted); transition: all .15s;
+}
+.chip:hover { background: var(--red-bg); border-color: var(--red-bd); color: var(--red); }
+
+/* ── Notifications ── */
+.notif-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.notif-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+.notif-item {
+  background: var(--surface2); border-radius: 8px;
+  border-left: 3px solid var(--border); padding: 10px 12px;
+  font-size: 12px; line-height: 1.5;
+  animation: slide-down .25s ease;
+}
+@keyframes slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.notif-item.delay    { border-left-color: var(--red);   background: var(--red-bg); }
+.notif-item.boarding { border-left-color: var(--amber); background: var(--amber-bg); }
+.notif-item.ok       { border-left-color: var(--green); background: var(--green-bg); }
+.notif-item.info     { border-left-color: var(--blue);  background: var(--blue-bg); }
+.notif-item.price    { border-left-color: var(--purple); background: var(--purple-bg); }
+.notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.notif-flight { font-weight: 700; font-family: 'Space Mono', monospace; }
+.notif-time   { font-size: 10px; color: var(--muted); }
+
+/* ── Toast ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column-reverse; gap: 10px; z-index: 200; }
+.toast {
+  background: var(--surface); border-radius: 12px; padding: 14px 18px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  max-width: 340px; font-size: 13px; line-height: 1.5;
+  animation: toast-in .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(40px) scale(.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+.toast.hiding { animation: toast-out .3s ease forwards; }
+@keyframes toast-out { to { opacity: 0; transform: translateX(50px); } }
+.toast-title { font-weight: 700; margin-bottom: 4px; }
+.toast.delay    { border-left: 4px solid var(--red); }
+.toast.boarding { border-left: 4px solid var(--amber); }
+.toast.ok       { border-left: 4px solid var(--green); }
+.toast.info     { border-left: 4px solid var(--blue); }
+.toast.price    { border-left: 4px solid var(--purple); }
+
+/* ── Pricing Engine Panel ── */
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+  margin-bottom: 24px;
+}
+.pricing-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px 22px;
+  box-shadow: var(--shadow); position: relative; overflow: hidden;
+}
+.pricing-card.peak { border-color: var(--red-bd); }
+.pricing-card.normal { border-color: var(--green-bd); }
+.pricing-card.off-peak { border-color: var(--blue-bd); }
+.pricing-card::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  width: 60px; height: 60px; border-radius: 0 0 0 60px;
+  opacity: .08;
+}
+.pricing-card.peak::after { background: var(--red); }
+.pricing-card.normal::after { background: var(--green); }
+.pricing-card.off-peak::after { background: var(--blue); }
+.pc-route { font-size: 20px; font-weight: 800; font-family: 'Space Mono', monospace; margin-bottom: 4px; }
+.pc-tier { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.pc-tier-badge { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; }
+.tier-peak    { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
+.tier-normal  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+.tier-offpeak { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-bd); }
+.pc-price { font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -1px; }
+.pc-price sub { font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.pc-base  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pc-multiplier { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.pc-factor { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.pc-actions { display: flex; gap: 8px; margin-top: 14px; }
+.demand-bar { margin-top: 12px; }
+.demand-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.demand-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.demand-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+.demand-high  { background: linear-gradient(90deg, var(--red), #f87171); }
+.demand-med   { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+.demand-low   { background: linear-gradient(90deg, var(--blue), #60a5fa); }
+
+/* ── Price History ── */
+.history-section { margin-bottom: 28px; }
+.history-chart-wrap { position: relative; width: 100%; height: 280px; }
+
+/* ── Price Freeze ── */
+.freeze-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.freeze-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 2px solid var(--purple-bd); padding: 20px;
+  box-shadow: var(--shadow);
+}
+.freeze-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.freeze-badge { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.freeze-price { font-size: 24px; font-weight: 800; color: var(--purple); font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+.freeze-meta  { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.freeze-timer { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--amber); margin-top: 10px; }
+.freeze-progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.freeze-bar  { height: 100%; border-radius: 2px; background: var(--purple); transition: width 1s linear; }
+
+/* ── Refund/Cancellation ── */
+.booking-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+.booking-item {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 22px;
+  box-shadow: var(--shadow); display: grid;
+  grid-template-columns: 1fr auto; gap: 14px; align-items: start;
+}
+.booking-info {}
+.booking-route { font-size: 16px; font-weight: 700; font-family: 'Space Mono', monospace; margin-bottom: 4px; }
+.booking-meta  { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.booking-amount { font-size: 20px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; }
+.booking-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.refund-status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px; }
+.status-active    { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.status-cancelled { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+.status-pending   { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.status-processed { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+.status-completed { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+
+/* ── Refund tracker ── */
+.refund-tracker {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 22px;
+  box-shadow: var(--shadow); margin-bottom: 24px;
+}
+.tracker-steps { display: flex; align-items: center; gap: 0; margin: 20px 0; }
+.tracker-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.step-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; position: relative; z-index: 1;
+}
+.step-done    { background: var(--green); color: #fff; }
+.step-active  { background: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--red-bg); }
+.step-pending { background: var(--border); color: var(--muted); }
+.step-line { flex: 1; height: 2px; background: var(--border); margin-top: -40px; }
+.step-line.done { background: var(--green); }
+.step-label { font-size: 10px; color: var(--muted); text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+
+/* ── Pricing history chart ── */
+.chart-legend { display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+.chart-legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* ── Section divider ── */
+.section-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.section-divider h2 {
+  font-size: 18px; font-weight: 700; color: var(--text); white-space: nowrap;
+}
+.section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300; padding: 20px; opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border-radius: 18px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  max-width: 520px; width: 100%; padding: 28px;
+  transform: scale(.95); transition: transform .25s;
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 7px; }
+.refund-calc {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin: 16px 0;
+}
+.refund-calc-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+.refund-calc-row.total { font-weight: 700; font-size: 15px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; color: var(--green); }
+
+/* ── Pricing banner ── */
+.pricing-banner {
+  background: linear-gradient(135deg, #1c1917 0%, #292524 100%);
+  border-radius: var(--radius); padding: 22px 26px;
+  margin-bottom: 24px; color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+}
+.pb-left h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.pb-left p  { font-size: 13px; color: rgba(255,255,255,.6); }
+.pb-badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.9); border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 600; }
+
+/* ── Stat cards ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface2); border-radius: 10px;
+  padding: 16px 18px;
+}
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.stat-up    { color: var(--red); }
+.stat-down  { color: var(--green); }
+
+/* ── Scroll ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Cancel Modal -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Cancel Booking</div>
+      <button class="modal-close" onclick="closeModal('cancelModal')">✕</button>
+    </div>
+    <div id="cancelModalBody"></div>
+  </div>
+</div>
+
+<!-- Price History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="historyModalTitle">Price History</div>
+      <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    </div>
+    <div class="chart-legend">
+      <div class="chart-legend-item"><div class="legend-dot" style="background:#dc2626"></div>Actual Price</div>
+      <div class="chart-legend-item"><div class="legend-dot" style="background:#e8e4dd"></div>Base Price</div>
+    </div>
+    <div style="position:relative;width:100%;height:260px">
+      <canvas id="historyChartModal" role="img" aria-label="Price history chart for selected flight"></canvas>
+    </div>
+    <div id="historyModalMeta" style="margin-top:14px;font-size:13px;color:var(--muted);line-height:1.7"></div>
+  </div>
+</div>
+
+<!-- Freeze Modal -->
+<div class="modal-overlay" id="freezeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔒 Freeze This Price</div>
+      <button class="modal-close" onclick="closeModal('freezeModal')">✕</button>
+    </div>
+    <div id="freezeModalBody"></div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">✈</div>
+    <div class="logo-name">make<span>MyTrip</span></div>
+  </div>
+  <div class="header-nav">
+    <button class="nav-btn active" onclick="showPage('flights')">✈ Live Tracker</button>
+    <button class="nav-btn" onclick="showPage('pricing')">💰 Dynamic Pricing</button>
+    <button class="nav-btn" onclick="showPage('history')">📈 Price History</button>
+    <button class="nav-btn" onclick="showPage('refunds')">↩ Bookings & Refunds</button>
+  </div>
+  <div class="ws-status">
+    <div class="ws-dot connecting" id="wsDot"></div>
+    <span id="wsLabel">Connecting…</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 1: Live Flight Tracker
+═══════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-flights">
+  <div class="main-wrap">
+    <div>
+      <div class="track-bar">
+        <input type="text" id="userIdInput" class="user-input input" placeholder="User ID" value="demo_user">
+        <input type="text" id="flightInput" placeholder="Flight e.g. AI302" maxlength="8" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-primary" onclick="trackFlight()">Track</button>
+        <button class="btn btn-outline" onclick="loadAllFlights()">Load All</button>
+      </div>
+      <div class="summary-bar" id="summaryBar"></div>
+      <div class="card-title">Live Flight Status</div>
+      <div id="flightGrid">
+        <div class="empty-state">
+          <div class="empty-icon">✈</div>
+          <div class="empty-title">No flights loaded</div>
+          <div class="empty-sub">Enter a flight number above and click <strong>Track</strong>, or click <strong>Load All</strong> to see every flight.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Quick Track</div>
+        <div class="quick-chips" id="quickChips"></div>
+      </div>
+
+      <!-- Pricing Sidebar Summary -->
+      <div class="card">
+        <div class="card-title">💰 Live Pricing Alerts</div>
+        <div id="pricingAlerts" style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">
+          Price alerts will appear as flights load.
+        </div>
+      </div>
+
+      <!-- Frozen prices sidebar -->
+      <div class="card">
+        <div class="card-title">🔒 Frozen Prices</div>
+        <div id="frozenPricesSidebar" style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">
+          No prices frozen yet.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Live Notifications</div>
+        <div class="notif-list" id="notifList">
+          <div class="notif-empty">Notifications will appear here once connected.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 2: Dynamic Pricing Engine
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-pricing">
+  <div class="page-full">
+    <div class="pricing-banner">
+      <div class="pb-left">
+        <h2>Dynamic Pricing Engine</h2>
+        <p>Prices auto-adjust in real time based on demand, seasonality, and travel patterns.</p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="pb-badge">🔴 Peak Season Active</div>
+        <div class="pb-badge">Updates every 60s</div>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="pricingStats">
+      <div class="stat-card">
+        <div class="stat-label">Avg Surge</div>
+        <div class="stat-value stat-up">+24%</div>
+        <div class="stat-sub">vs base price</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Peak Routes</div>
+        <div class="stat-value">5</div>
+        <div class="stat-sub">of 10 monitored</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Price Drops</div>
+        <div class="stat-value stat-down">3</div>
+        <div class="stat-sub">opportunities today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Prices Frozen</div>
+        <div class="stat-value"id="frozenCount">0</div>
+        <div class="stat-sub">by users</div>
+      </div>
+    </div>
+
+    <div class="section-divider"><h2>Route Pricing</h2></div>
+    <div class="pricing-grid" id="pricingGrid"></div>
+
+    <div class="section-divider"><h2>Pricing Rules & Transparency</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+      <div class="card">
+        <div class="card-title">Holiday Surge</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">During public holidays and festival seasons, prices increase by up to <strong>20%</strong> automatically. Currently active: Diwali, Christmas, New Year window.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Demand-Based Pricing</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">When seat availability drops below <strong>30%</strong>, prices rise dynamically. Below 10% availability triggers maximum pricing tier.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Off-Peak Discounts</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">Flights departing between <strong>02:00–06:00</strong> or on weekday middays receive automatic discounts of 10–15%.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Price Guarantee</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">Once you book, your price is locked. Use Price Freeze to hold a fare for up to <strong>24 hours</strong> before committing to purchase.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 3: Price History
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="page-full">
+    <div class="section-divider"><h2>Price History & Trends</h2></div>
+
+    <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center">
+      <select class="select" style="width:220px" id="historyRouteSelect" onchange="renderHistoryPage()">
+        <option value="DEL-BOM">Delhi → Mumbai</option>
+        <option value="BOM-BLR">Mumbai → Bengaluru</option>
+        <option value="DEL-BLR">Delhi → Bengaluru</option>
+        <option value="BLR-HYD">Bengaluru → Hyderabad</option>
+        <option value="COK-DEL">Kochi → Delhi</option>
+      </select>
+      <select class="select" style="width:160px" id="historyPeriod" onchange="renderHistoryPage()">
+        <option value="7">Last 7 days</option>
+        <option value="14">Last 14 days</option>
+        <option value="30" selected>Last 30 days</option>
+      </select>
+    </div>
+
+    <div class="stat-grid" id="historyStats"></div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#dc2626"></div>Actual Price</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#94a3b8;border-style:dashed;height:2px;width:10px;border-radius:0"></div>Base Price</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#7c3aed"></div>Frozen Price Events</div>
+      </div>
+      <div style="position:relative;width:100%;height:320px">
+        <canvas id="historyPageChart" role="img" aria-label="Price history trend chart showing price fluctuations over the selected time period">Price history data for selected route.</canvas>
+      </div>
+    </div>
+
+    <div class="section-divider"><h2>Price Events</h2></div>
+    <div id="priceEvents" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 4: Bookings & Refunds
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-refunds">
+  <div class="page-full">
+    <div class="section-divider"><h2>My Bookings & Cancellations</h2></div>
+
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-label">Total Bookings</div>
+        <div class="stat-value" id="totalBookings">5</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active</div>
+        <div class="stat-value stat-down" id="activeBookings">3</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Refunds Pending</div>
+        <div class="stat-value stat-up" id="pendingRefunds">1</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Refunded</div>
+        <div class="stat-value" id="totalRefunded">₹4,250</div>
+      </div>
+    </div>
+
+    <!-- Refund tracker -->
+    <div class="refund-tracker" id="refundTracker">
+      <div class="card-title">Refund Status Tracker</div>
+      <div id="refundTrackerContent"></div>
+    </div>
+
+    <div class="section-divider"><h2>All Bookings</h2></div>
+    <div class="booking-list" id="bookingList"></div>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   CONFIG
+───────────────────────────────────────────── */
+const API_BASE = '/api/flights';
+const WS_URL   = '/ws';
+const KNOWN_FLIGHTS = ['AI302','6E456','SG101','UK820','GO251','AI131'];
+const MAX_NOTIF = 30;
+const MAX_TOAST = 4;
+
+let stompClient   = null;
+let subscriptions = {};
+let displayedCards= {};
+let countdownTimers={};
+let notifCount    = 0;
+let historyChart  = null;
+let historyModalChart = null;
+
+/* ─────────────────────────────────────────────
+   PRICING ENGINE DATA
+───────────────────────────────────────────── */
+const PRICING_ROUTES = [
+  { route: 'DEL→BOM', base: 4500, demand: 92, season: 'peak',    factors: ['Holiday surge +20%', 'High demand +18%', 'Weekend +8%'] },
+  { route: 'BOM→BLR', base: 3200, demand: 55, season: 'normal',  factors: ['Normal demand', 'Weekday discount -5%'] },
+  { route: 'DEL→BLR', base: 5200, demand: 78, season: 'peak',    factors: ['Festival season +15%', 'Moderate demand +10%'] },
+  { route: 'BLR→HYD', base: 2100, demand: 31, season: 'offpeak', factors: ['Early morning -10%', 'Low demand -8%'] },
+  { route: 'COK→DEL', base: 4800, demand: 88, season: 'peak',    factors: ['Holiday surge +20%', 'High demand +15%'] },
+  { route: 'CCU→BOM', base: 3900, demand: 44, season: 'normal',  factors: ['Weekday -3%', 'Normal season'] },
+];
+
+function calcPrice(route) {
+  const { base, demand, season } = route;
+  let multiplier = 1.0;
+  if (season === 'peak')    multiplier *= 1.20;
+  if (season === 'offpeak') multiplier *= 0.88;
+  const demandMult = demand > 80 ? 1.18 : demand > 60 ? 1.05 : demand < 40 ? 0.92 : 1.0;
+  multiplier *= demandMult;
+  return { price: Math.round(base * multiplier), multiplier };
+}
+
+/* Price history simulation */
+function generatePriceHistory(basePrice, days) {
+  const history = [];
+  const today   = new Date();
+  let   price   = basePrice;
+  for (let i = days; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const variance = (Math.random() - 0.45) * 0.08;
+    price = Math.max(basePrice * 0.80, Math.min(basePrice * 1.35, price * (1 + variance)));
+    // Add holiday spikes
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek === 5 || dayOfWeek === 6) price *= 1.06;
+    history.push({ date: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }), price: Math.round(price) });
+  }
+  return history;
+}
+
+/* ─────────────────────────────────────────────
+   BOOKINGS DATA
+───────────────────────────────────────────── */
+const BOOKINGS = [
+  { id: 'MMT2024A', flight: 'AI302', route: 'DEL→BOM', date: '2026-05-15', amount: 5400, status: 'active',    pax: 1, refundStatus: null },
+  { id: 'MMT2024B', flight: '6E456', route: 'BOM→BLR', date: '2026-04-28', amount: 3200, status: 'active',    pax: 2, refundStatus: null },
+  { id: 'MMT2024C', flight: 'SG101', route: 'DEL→BLR', date: '2026-04-10', amount: 5800, status: 'cancelled', pax: 1, refundStatus: 'completed', refundAmount: 2900, refundDate: '2026-04-12', cancelReason: 'Change of plans' },
+  { id: 'MMT2024D', flight: 'UK820', route: 'BLR→HYD', date: '2026-05-02', amount: 2100, status: 'cancelled', pax: 1, refundStatus: 'pending',   refundAmount: 1050, cancelReason: 'Medical emergency', cancelledAt: new Date(Date.now() - 20*3600*1000) },
+  { id: 'MMT2024E', flight: 'GO251', route: 'COK→DEL', date: '2026-06-01', amount: 4800, status: 'active',    pax: 1, refundStatus: null },
+];
+
+/* Frozen prices store */
+const frozenPrices = [];
+
+/* ─────────────────────────────────────────────
+   PAGE NAVIGATION
+───────────────────────────────────────────── */
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const idx = { flights:0, pricing:1, history:2, refunds:3 }[page];
+  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+
+  if (page === 'pricing')  renderPricingPage();
+  if (page === 'history')  renderHistoryPage();
+  if (page === 'refunds')  renderRefundsPage();
+}
+
+/* ─────────────────────────────────────────────
+   WEBSOCKET
+───────────────────────────────────────────── */
+function connectWebSocket() {
+  setWsStatus('connecting');
+  try {
+    const socket = new SockJS(WS_URL);
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null;
+    stompClient.connect({}, () => {
+      setWsStatus('connected');
+      Object.keys(displayedCards).forEach(fn => subscribeToFlight(fn));
+    }, () => {
+      setWsStatus('error');
+      setTimeout(connectWebSocket, 5000);
+    });
+  } catch(e) {
+    setWsStatus('error');
+    setTimeout(connectWebSocket, 8000);
+  }
+}
+
+function setWsStatus(state) {
+  const dot = document.getElementById('wsDot'), label = document.getElementById('wsLabel');
+  dot.className = 'ws-dot ' + state;
+  label.textContent = { connecting:'Connecting…', connected:'Live', error:'Reconnecting…' }[state];
+}
+
+function subscribeToFlight(fn) {
+  if (!stompClient?.connected || subscriptions[fn]) return;
+  subscriptions[fn] = stompClient.subscribe(`/topic/flights/${fn}`, msg => {
+    handleWebSocketUpdate(JSON.parse(msg.body));
+  });
+}
+
+function unsubscribeFromFlight(fn) {
+  if (subscriptions[fn]) { subscriptions[fn].unsubscribe(); delete subscriptions[fn]; }
+}
+
+function handleWebSocketUpdate(notification) {
+  const fn = notification.flightNumber;
+  if (displayedCards[fn]) {
+    patchCard(fn, {
+      status: notification.newStatus,
+      delayMinutes: notification.delayMinutes,
+      estimatedDeparture: notification.newEstimatedDeparture,
+      estimatedArrival: notification.newEstimatedArrival,
+    });
+    flashCard(fn, notification.notificationType);
+  }
+  addSidebarNotification(notification);
+  const significant = ['DELAY_UPDATE','BOARDING_STARTED','STATUS_NORMALISED','CANCELLATION'];
+  if (significant.includes(notification.notificationType)) showToast(notification);
+  updateSummaryBar();
+}
+
+/* ─────────────────────────────────────────────
+   REST API
+───────────────────────────────────────────── */
+async function trackFlight() {
+  const fn = document.getElementById('flightInput').value.trim().toUpperCase();
+  const userId = document.getElementById('userIdInput').value.trim() || 'demo_user';
+  if (!fn) return;
+  if (displayedCards[fn]) {
+    displayedCards[fn].scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('flightInput').value = '';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/track`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ userId, flightNumber: fn })
+    });
+    if (res.status === 409) {
+      await fetchAndDisplayFlight(fn);
+    } else if (!res.ok) {
+      const err = await res.json();
+      showDemoCard(fn); // Fall back to demo card when backend unavailable
+    } else {
+      const body = await res.json();
+      renderFlightCard(body.data);
+      subscribeToFlight(fn);
+    }
+    document.getElementById('flightInput').value = '';
+    updateSummaryBar();
+  } catch(e) {
+    showDemoCard(fn);
+    document.getElementById('flightInput').value = '';
+  }
+}
+
+async function fetchAndDisplayFlight(fn) {
+  try {
+    const res  = await fetch(`${API_BASE}/${fn}`);
+    const body = await res.json();
+    if (res.ok && body.data) { renderFlightCard(body.data); subscribeToFlight(fn); }
+    else showDemoCard(fn);
+  } catch(e) { showDemoCard(fn); }
+}
+
+async function loadAllFlights() {
+  try {
+    const res  = await fetch(`${API_BASE}/all`);
+    const body = await res.json();
+    if (!res.ok) { KNOWN_FLIGHTS.forEach(fn => { if (!displayedCards[fn]) showDemoCard(fn); }); return; }
+    body.data.forEach(f => { if (!displayedCards[f.flightNumber]) { renderFlightCard(f); subscribeToFlight(f.flightNumber); } });
+    updateSummaryBar();
+  } catch(e) {
+    KNOWN_FLIGHTS.forEach(fn => { if (!displayedCards[fn]) showDemoCard(fn); });
+  }
+}
+
+async function removeFlight(fn) {
+  const userId = document.getElementById('userIdInput').value.trim() || 'demo_user';
+  try { await fetch(`${API_BASE}/untrack`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, flightNumber: fn }) }); } catch(e) {}
+  unsubscribeFromFlight(fn);
+  const card = displayedCards[fn];
+  if (card) {
+    card.style.transition = 'opacity .3s, transform .3s';
+    card.style.opacity = '0'; card.style.transform = 'scale(.96)';
+    setTimeout(() => { card.remove(); delete displayedCards[fn]; updateSummaryBar(); }, 300);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   DEMO CARDS (when backend not available)
+───────────────────────────────────────────── */
+const DEMO_FLIGHTS = {
+  'AI302': { flightNumber:'AI302', origin:'DEL', destination:'BOM', status:'ON_TIME',   gate:'B14', terminal:'T3', aircraftType:'B737', scheduledDeparture: new Date(Date.now()+7200000).toISOString(), estimatedDeparture: new Date(Date.now()+7200000).toISOString(), estimatedArrival: new Date(Date.now()+9600000).toISOString(), delayMinutes:0, minutesToDeparture:120 },
+  '6E456': { flightNumber:'6E456', origin:'BOM', destination:'BLR', status:'DELAYED',   gate:'A8',  terminal:'T1', aircraftType:'A320', scheduledDeparture: new Date(Date.now()+3600000).toISOString(), estimatedDeparture: new Date(Date.now()+5400000).toISOString(), estimatedArrival: new Date(Date.now()+8400000).toISOString(), delayMinutes:30, minutesToDeparture:90 },
+  'SG101': { flightNumber:'SG101', origin:'DEL', destination:'BLR', status:'BOARDING',  gate:'C3',  terminal:'T2', aircraftType:'B737', scheduledDeparture: new Date(Date.now()+1200000).toISOString(), estimatedDeparture: new Date(Date.now()+1200000).toISOString(), estimatedArrival: new Date(Date.now()+5400000).toISOString(), delayMinutes:0, minutesToDeparture:20 },
+  'UK820': { flightNumber:'UK820', origin:'BLR', destination:'HYD', status:'ON_TIME',   gate:'D2',  terminal:'T1', aircraftType:'ATR72', scheduledDeparture: new Date(Date.now()+10800000).toISOString(), estimatedDeparture: new Date(Date.now()+10800000).toISOString(), estimatedArrival: new Date(Date.now()+13200000).toISOString(), delayMinutes:0, minutesToDeparture:180 },
+  'GO251': { flightNumber:'GO251', origin:'COK', destination:'DEL', status:'DEPARTED',  gate:'E6',  terminal:'T1', aircraftType:'B737', scheduledDeparture: new Date(Date.now()-1800000).toISOString(), estimatedDeparture: new Date(Date.now()-1800000).toISOString(), estimatedArrival: new Date(Date.now()+6600000).toISOString(), delayMinutes:0, minutesToDeparture:-30 },
+  'AI131': { flightNumber:'AI131', origin:'CCU', destination:'BOM', status:'ON_TIME',   gate:'F11', terminal:'T3', aircraftType:'A321', scheduledDeparture: new Date(Date.now()+14400000).toISOString(), estimatedDeparture: new Date(Date.now()+14400000).toISOString(), estimatedArrival: new Date(Date.now()+19200000).toISOString(), delayMinutes:0, minutesToDeparture:240 },
+};
+
+function showDemoCard(fn) {
+  const f = DEMO_FLIGHTS[fn] || {
+    flightNumber: fn, origin:'???', destination:'???', status:'ON_TIME',
+    gate:'—', terminal:'', aircraftType:'', delayMinutes:0, minutesToDeparture:120,
+    scheduledDeparture: new Date().toISOString(),
+    estimatedDeparture: new Date().toISOString(),
+    estimatedArrival: new Date(Date.now()+7200000).toISOString()
+  };
+  renderFlightCard(f);
+}
+
+/* ─────────────────────────────────────────────
+   PRICE CALCULATION FOR FLIGHT CARDS
+───────────────────────────────────────────── */
+const ROUTE_BASES = { 'DEL-BOM':4500,'BOM-BLR':3200,'DEL-BLR':5200,'BLR-HYD':2100,'COK-DEL':4800,'CCU-BOM':3900 };
+
+function getFlightPrice(f) {
+  const key = `${f.origin}-${f.destination}`;
+  const base = ROUTE_BASES[key] || 3500;
+  let multiplier = 1.0;
+  const demand = Math.random() * 60 + 30;
+  if (demand > 80) multiplier = 1.22;
+  else if (demand > 60) multiplier = 1.10;
+  else if (demand < 40) multiplier = 0.92;
+  // Weekend check
+  const day = new Date().getDay();
+  if (day === 5 || day === 6 || day === 0) multiplier *= 1.08;
+  return { base, current: Math.round(base * multiplier), multiplier: Math.round(multiplier * 100) / 100, demand: Math.round(demand) };
+}
+
+/* ─────────────────────────────────────────────
+   CARD RENDERING
+───────────────────────────────────────────── */
+function renderFlightCard(f) {
+  const grid  = document.getElementById('flightGrid');
+  const empty = grid.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const card = document.createElement('div');
+  card.id = `card-${f.flightNumber}`;
+  card.className = `flight-card card-${statusClass(f.status)}`;
+
+  const pricing = getFlightPrice(f);
+  card._pricing = pricing;
+
+  card.innerHTML = buildCardHTML(f, pricing);
+  grid.appendChild(card);
+  displayedCards[f.flightNumber] = card;
+  updatePricingAlerts();
+}
+
+function buildCardHTML(f, pricing) {
+  const delayed  = f.status === 'DELAYED' && f.delayMinutes > 0;
+  const depTime  = formatTime(f.estimatedDeparture);
+  const arrTime  = formatTime(f.estimatedArrival);
+  const schDep   = formatTime(f.scheduledDeparture);
+  const mins     = f.minutesToDeparture;
+  const isSurge  = pricing.multiplier > 1.05;
+  const isDrop   = pricing.multiplier < 0.97;
+  const frozen   = frozenPrices.find(fp => fp.flight === f.flightNumber);
+
+  return `
+    <div class="card-header">
+      <div class="flight-num">${f.flightNumber}</div>
+      <div class="status-badge badge-${statusClass(f.status)}">${statusLabel(f.status)}</div>
+      <button class="remove-btn" onclick="removeFlight('${f.flightNumber}')" title="Remove">✕</button>
+    </div>
+    <div class="route">
+      <div class="airport"><div class="iata">${f.origin}</div><div class="city">${f.origin}</div></div>
+      <div class="route-line"><div class="route-track"></div><div class="route-label">${f.aircraftType||''}</div></div>
+      <div class="airport" style="text-align:right"><div class="iata">${f.destination}</div><div class="city">${f.destination}</div></div>
+    </div>
+    <div class="price-tag">
+      <div>
+        ${frozen ? `<div class="price-frozen">🔒 FROZEN</div><div class="price-current">₹${frozen.price.toLocaleString('en-IN')}</div>` :
+          `<div class="price-current">₹${pricing.current.toLocaleString('en-IN')}</div>`}
+        ${!frozen && isSurge ? `<div class="price-original">₹${pricing.base.toLocaleString('en-IN')}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${frozen ? `<span class="price-frozen">Locked ${frozen.hours}h</span>` :
+          isSurge ? `<span class="price-surge">↑ +${Math.round((pricing.multiplier-1)*100)}%</span>` :
+          isDrop  ? `<span class="price-drop">↓ ${Math.round((1-pricing.multiplier)*100)}% off</span>` : ''}
+        <span style="font-size:10px;color:var(--muted)">per person</span>
+      </div>
+    </div>
+    <div class="times">
+      <div class="time-block">
+        <div class="time-label">Departure</div>
+        ${delayed ? `<div class="time-orig">${schDep}</div><div class="time-new">${depTime}</div>` : `<div class="time-value">${depTime}</div>`}
+      </div>
+      <div class="time-block">
+        <div class="time-label">Arrival ETA</div>
+        <div class="time-value">${arrTime}</div>
+      </div>
+    </div>
+    <div class="delay-bar ${delayed?'visible':''}" id="delay-${f.flightNumber}">
+      ⏱ Delayed ${f.delayMinutes} min
+    </div>
+    <div class="card-footer">
+      <div>🚪 Gate ${f.gate||'—'} · ${f.terminal||''}</div>
+      <div class="card-actions">
+        <button class="history-btn" onclick="openHistoryModal('${f.flightNumber}','${f.origin}','${f.destination}')">📈</button>
+        ${!frozen ? `<button class="freeze-btn" onclick="openFreezeModal('${f.flightNumber}',${pricing.current},'${f.origin}','${f.destination}')">🔒</button>` : ''}
+        <button class="book-btn" onclick="showToastRaw('ok','Booking','Redirecting to booking for ${f.flightNumber}...')">Book ₹${frozen ? frozen.price.toLocaleString('en-IN') : pricing.current.toLocaleString('en-IN')}</button>
+        <button class="remove-btn" onclick="removeFlight('${f.flightNumber}')">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function patchCard(fn, patch) {
+  const card = displayedCards[fn]; if (!card) return;
+  const badge = card.querySelector('.status-badge');
+  if (badge) { badge.className = `status-badge badge-${statusClass(patch.status)}`; badge.textContent = statusLabel(patch.status); }
+  card.className = `flight-card card-${statusClass(patch.status)}`;
+  const delayBar = card.querySelector(`#delay-${fn}`);
+  if (delayBar) {
+    const delayed = patch.status === 'DELAYED' && patch.delayMinutes > 0;
+    delayBar.classList.toggle('visible', delayed);
+    if (delayed) delayBar.textContent = `⏱ Delayed ${patch.delayMinutes} min`;
+  }
+}
+
+function flashCard(fn, notifType) {
+  const card = displayedCards[fn]; if (!card) return;
+  const colorMap = { DELAY_UPDATE:'#fff5f5', BOARDING_STARTED:'#fffbeb', STATUS_NORMALISED:'#f0fdf4', DEPARTURE_CHANGE:'#eff6ff' };
+  card.style.setProperty('--flash-color', colorMap[notifType]||'#fffde7');
+  card.classList.remove('card-flash'); void card.offsetWidth; card.classList.add('card-flash');
+}
+
+/* ─────────────────────────────────────────────
+   PRICE FREEZE
+───────────────────────────────────────────── */
+function openFreezeModal(fn, price, origin, dest) {
+  const body = document.getElementById('freezeModalBody');
+  body.innerHTML = `
+    <div style="background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${origin} → ${dest} · ${fn}</div>
+      <div style="font-size:28px;font-weight:800;color:var(--purple)">₹${price.toLocaleString('en-IN')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Current price — will be locked for you</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Freeze Duration</label>
+      <select class="select" id="freezeDuration">
+        <option value="6">6 hours — Free</option>
+        <option value="12">12 hours — ₹99</option>
+        <option value="24" selected>24 hours — ₹199</option>
+      </select>
+    </div>
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:12px;font-size:12px;color:var(--amber);margin-bottom:16px">
+      ⚡ Price Freeze protects you from any increase during the freeze period. If prices drop, you pay the lower price!
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-purple" style="flex:1" onclick="confirmFreeze('${fn}',${price},'${origin}','${dest}')">🔒 Freeze Price</button>
+      <button class="btn btn-outline" onclick="closeModal('freezeModal')">Cancel</button>
+    </div>
+  `;
+  openModal('freezeModal');
+}
+
+function confirmFreeze(fn, price, origin, dest) {
+  const hours = parseInt(document.getElementById('freezeDuration').value);
+  const freeze = { flight: fn, price, origin, dest, hours, expiresAt: Date.now() + hours*3600000, frozenAt: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) };
+  // Remove existing freeze for same flight
+  const idx = frozenPrices.findIndex(fp => fp.flight === fn);
+  if (idx > -1) frozenPrices.splice(idx, 1);
+  frozenPrices.push(freeze);
+  closeModal('freezeModal');
+  // Refresh card
+  if (displayedCards[fn]) {
+    const f = DEMO_FLIGHTS[fn] || { flightNumber:fn, origin, destination:dest };
+    const pricing = displayedCards[fn]._pricing || { current:price, base:price, multiplier:1, demand:50 };
+    displayedCards[fn].innerHTML = buildCardHTML(f, pricing);
+  }
+  updateFrozenPricesSidebar();
+  document.getElementById('frozenCount').textContent = frozenPrices.length;
+  showToastRaw('price', `Price Frozen — ${fn}`, `₹${price.toLocaleString('en-IN')} locked for ${hours} hours.`);
+  addSidebarNotification({ flightNumber:fn, notificationType:'PRICE_FREEZE', message:`Price ₹${price.toLocaleString('en-IN')} frozen for ${hours}h` });
+}
+
+function updateFrozenPricesSidebar() {
+  const el = document.getElementById('frozenPricesSidebar');
+  if (frozenPrices.length === 0) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No prices frozen yet.</div>'; return; }
+  el.innerHTML = frozenPrices.map(fp => {
+    const remaining = Math.max(0, fp.expiresAt - Date.now());
+    const hrs = Math.floor(remaining/3600000);
+    const mins= Math.floor((remaining%3600000)/60000);
+    return `
+      <div style="background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700">${fp.flight}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--purple)">₹${fp.price.toLocaleString('en-IN')}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${fp.origin} → ${fp.dest}</div>
+        <div style="font-size:11px;color:var(--amber);margin-top:4px">⏱ Expires in ${hrs}h ${mins}m</div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   PRICE HISTORY MODAL
+───────────────────────────────────────────── */
+function openHistoryModal(fn, origin, dest) {
+  const key = `${origin}-${dest}`;
+  const base = ROUTE_BASES[key] || 3500;
+  const history = generatePriceHistory(base, 14);
+  document.getElementById('historyModalTitle').textContent = `📈 Price History — ${fn} (${origin}→${dest})`;
+
+  if (historyModalChart) { historyModalChart.destroy(); historyModalChart = null; }
+
+  openModal('historyModal');
+  setTimeout(() => {
+    const ctx = document.getElementById('historyChartModal').getContext('2d');
+    historyModalChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map(h => h.date),
+        datasets: [
+          { label:'Price', data: history.map(h => h.price), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.08)', tension:.4, fill:true, pointRadius:3, pointBackgroundColor:'#dc2626' },
+          { label:'Base', data: history.map(() => base), borderColor:'#cbd5e1', borderDash:[6,4], tension:0, fill:false, pointRadius:0 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: { legend:{ display:false } },
+        scales: {
+          y: { ticks: { callback: v => '₹'+v.toLocaleString('en-IN'), font:{size:11} }, grid:{ color:'rgba(0,0,0,.05)' } },
+          x: { ticks:{ font:{size:11}, maxRotation:30 }, grid:{display:false} }
+        }
+      }
+    });
+
+    const curr = history[history.length-1].price;
+    const min  = Math.min(...history.map(h=>h.price));
+    const max  = Math.max(...history.map(h=>h.price));
+    document.getElementById('historyModalMeta').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Current</div>
+          <div style="font-size:15px;font-weight:700;color:var(--red)">₹${curr.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="background:var(--green-bg);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">14-day Low</div>
+          <div style="font-size:15px;font-weight:700;color:var(--green)">₹${min.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="background:var(--red-bg);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">14-day High</div>
+          <div style="font-size:15px;font-weight:700;color:var(--red)">₹${max.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+    `;
+  }, 100);
+}
+
+/* ─────────────────────────────────────────────
+   PRICING PAGE
+───────────────────────────────────────────── */
+function renderPricingPage() {
+  const grid = document.getElementById('pricingGrid');
+  grid.innerHTML = PRICING_ROUTES.map(route => {
+    const { price, multiplier } = calcPrice(route);
+    const tierClass = { peak:'tier-peak', normal:'tier-normal', offpeak:'tier-offpeak' }[route.season];
+    const tierLabel = { peak:'🔴 Peak Season', normal:'🟢 Normal Season', offpeak:'🔵 Off-Peak' }[route.season];
+    const cardClass = { peak:'peak', normal:'normal', offpeak:'off-peak' }[route.season];
+    const demandClass = route.demand > 70 ? 'demand-high' : route.demand > 45 ? 'demand-med' : 'demand-low';
+    const change = Math.round((multiplier - 1) * 100);
+    const key = route.route.replace('→','-');
+    return `
+      <div class="pricing-card ${cardClass}">
+        <div class="pc-route">${route.route}</div>
+        <div class="pc-tier"><span class="pc-tier-badge ${tierClass}">${tierLabel}</span></div>
+        <div class="pc-price">₹${price.toLocaleString('en-IN')}<sub>/person</sub></div>
+        <div class="pc-base">Base: ₹${route.base.toLocaleString('en-IN')}</div>
+        <div class="pc-multiplier ${change>=0?'stat-up':'stat-down'}">${change>=0?'↑ +':'↓ '}${Math.abs(change)}% from base</div>
+        <div class="demand-bar">
+          <div class="demand-label"><span>Seat demand</span><span>${route.demand}%</span></div>
+          <div class="demand-track"><div class="demand-fill ${demandClass}" style="width:${route.demand}%"></div></div>
+        </div>
+        <div class="pc-factor">${route.factors.map(f=>`• ${f}`).join('<br>')}</div>
+        <div class="pc-actions">
+          <button class="btn btn-primary btn-sm" onclick="showToastRaw('ok','Booking','Opening booking for ${route.route}...')">Book Now</button>
+          <button class="btn btn-purple btn-sm" onclick="openFreezeModal('${key}',${price},'${route.route.split('→')[0]}','${route.route.split('→')[1]}')">🔒 Freeze</button>
+          <button class="btn btn-outline btn-sm" onclick="showPage('history')">📈 History</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   HISTORY PAGE
+───────────────────────────────────────────── */
+function renderHistoryPage() {
+  const routeKey = document.getElementById('historyRouteSelect').value;
+  const days     = parseInt(document.getElementById('historyPeriod').value);
+  const routeParts = routeKey.split('-');
+  const base    = ROUTE_BASES[routeKey] || 3500;
+  const history = generatePriceHistory(base, days);
+
+  const curr    = history[history.length-1].price;
+  const min     = Math.min(...history.map(h=>h.price));
+  const max     = Math.max(...history.map(h=>h.price));
+  const avg     = Math.round(history.reduce((s,h)=>s+h.price,0)/history.length);
+  const trend   = curr > history[0].price ? 'up' : 'down';
+
+  // Stats
+  document.getElementById('historyStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Current Price</div><div class="stat-value">₹${curr.toLocaleString('en-IN')}</div><div class="stat-sub stat-${trend==='up'?'up':'down'}">${trend==='up'?'↑ Rising':'↓ Falling'}</div></div>
+    <div class="stat-card"><div class="stat-label">${days}-Day Low</div><div class="stat-value stat-down">₹${min.toLocaleString('en-IN')}</div><div class="stat-sub">Best time to buy</div></div>
+    <div class="stat-card"><div class="stat-label">${days}-Day High</div><div class="stat-value stat-up">₹${max.toLocaleString('en-IN')}</div><div class="stat-sub">Peak pricing</div></div>
+    <div class="stat-card"><div class="stat-label">Average</div><div class="stat-value">₹${avg.toLocaleString('en-IN')}</div><div class="stat-sub">Over ${days} days</div></div>
+  `;
+
+  // Chart
+  if (historyChart) { historyChart.destroy(); historyChart = null; }
+  setTimeout(() => {
+    const ctx = document.getElementById('historyPageChart').getContext('2d');
+    historyChart = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels: history.map(h=>h.date),
+        datasets:[
+          { label:'Price', data:history.map(h=>h.price), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.07)', tension:.4, fill:true, pointRadius: history.length<=14?4:2, pointBackgroundColor:'#dc2626' },
+          { label:'Base Price', data:history.map(()=>base), borderColor:'#cbd5e1', borderDash:[6,4], tension:0, fill:false, pointRadius:0 },
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{
+          y:{ ticks:{callback: v=>'₹'+v.toLocaleString('en-IN'), font:{size:11}}, grid:{color:'rgba(0,0,0,.04)'} },
+          x:{ ticks:{font:{size:11}, maxRotation:40, autoSkip:true, maxTicksLimit:12}, grid:{display:false} }
+        }
+      }
+    });
+  }, 50);
+
+  // Events
+  const events = [
+    { date: history[Math.floor(days*0.2)]?.date, type:'surge',  msg:`Price jumped to ₹${Math.round(max*.95).toLocaleString('en-IN')} due to holiday demand` },
+    { date: history[Math.floor(days*0.5)]?.date, type:'drop',   msg:`Price dropped to ₹${Math.round(min*1.02).toLocaleString('en-IN')} — low demand off-peak slot` },
+    { date: history[Math.floor(days*0.8)]?.date, type:'freeze', msg:`3 users froze price at ₹${Math.round(avg*.98).toLocaleString('en-IN')}` },
+    { date: history[history.length-1]?.date,    type:'info',   msg:`Current price: ₹${curr.toLocaleString('en-IN')} (${trend==='up'?'+':''}${Math.round((curr-base)/base*100)}% vs base)` },
+  ];
+  document.getElementById('priceEvents').innerHTML = events.map(e => {
+    const colors = { surge:'red', drop:'green', freeze:'purple', info:'blue' };
+    const icons  = { surge:'🔺', drop:'🔻', freeze:'🔒', info:'ℹ️' };
+    const c = colors[e.type];
+    return `
+      <div style="background:var(--${c}-bg);border:1px solid var(--${c}-bd);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:20px">${icons[e.type]}</div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${e.date}</div>
+          <div style="font-size:13px;font-weight:500">${e.msg}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   REFUNDS PAGE
+───────────────────────────────────────────── */
+function renderRefundsPage() {
+  const active    = BOOKINGS.filter(b=>b.status==='active').length;
+  const pending   = BOOKINGS.filter(b=>b.refundStatus==='pending').length;
+  const refunded  = BOOKINGS.filter(b=>b.refundStatus==='completed').reduce((s,b)=>s+(b.refundAmount||0),0);
+  document.getElementById('totalBookings').textContent = BOOKINGS.length;
+  document.getElementById('activeBookings').textContent = active;
+  document.getElementById('pendingRefunds').textContent = pending;
+  document.getElementById('totalRefunded').textContent  = '₹'+refunded.toLocaleString('en-IN');
+
+  // Refund tracker for pending
+  const pendingB = BOOKINGS.find(b=>b.refundStatus==='pending');
+  const trackerEl = document.getElementById('refundTrackerContent');
+  if (pendingB) {
+    trackerEl.innerHTML = `
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Booking <strong>${pendingB.id}</strong> · ${pendingB.route} · Cancelled on ${new Date(pendingB.cancelledAt).toLocaleDateString('en-IN')}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--amber);margin-bottom:16px">Refund of ₹${pendingB.refundAmount.toLocaleString('en-IN')} — Processing (2–3 business days)</div>
+      <div class="tracker-steps">
+        <div class="tracker-step">
+          <div class="step-dot step-done">✓</div>
+          <div class="step-label">Cancelled</div>
+        </div>
+        <div class="step-line done"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-done">✓</div>
+          <div class="step-label">Verified</div>
+        </div>
+        <div class="step-line done"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-active">⟳</div>
+          <div class="step-label">Processing</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-pending">4</div>
+          <div class="step-label">Credited</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">Expected credit: 2–3 business days to original payment method. Reason: <em>${pendingB.cancelReason}</em></div>
+    `;
+  } else {
+    trackerEl.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No pending refunds.</div>';
+  }
+
+  // Booking list
+  document.getElementById('bookingList').innerHTML = BOOKINGS.map(b => {
+    const statusBadgeClass = b.status === 'active' ? 'status-active' : 'status-cancelled';
+    const refundBadge = b.refundStatus ? `<span class="refund-status-badge status-${b.refundStatus}">Refund: ${b.refundStatus.charAt(0).toUpperCase()+b.refundStatus.slice(1)}</span>` : '';
+    const cancelBtn = b.status === 'active'
+      ? `<button class="btn btn-danger btn-sm" onclick="openCancelModal('${b.id}')">Cancel Booking</button>`
+      : '';
+    const refundInfo = b.refundAmount ? `<div style="font-size:12px;color:var(--green);margin-top:4px">✓ Refund: ₹${b.refundAmount.toLocaleString('en-IN')} (50% — within 24h policy)</div>` : '';
+    return `
+      <div class="booking-item">
+        <div class="booking-info">
+          <div class="booking-route">${b.route} · <span style="font-family:'Space Mono',monospace;font-size:14px">${b.flight}</span></div>
+          <div class="booking-meta">
+            Booking ID: <strong>${b.id}</strong> · ${b.pax} passenger${b.pax>1?'s':''} · Travel: ${new Date(b.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
+          </div>
+          ${refundInfo}
+          <div class="booking-actions">
+            <span class="refund-status-badge ${statusBadgeClass}">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span>
+            ${refundBadge}
+            ${cancelBtn}
+          </div>
+        </div>
+        <div>
+          <div class="booking-amount">₹${b.amount.toLocaleString('en-IN')}</div>
+          <div style="font-size:11px;color:var(--muted);text-align:right;margin-top:4px">total</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openCancelModal(bookingId) {
+  const booking = BOOKINGS.find(b => b.id === bookingId);
+  if (!booking) return;
+
+  // Calculate refund based on timing
+  const hoursUntilFlight = (new Date(booking.date) - Date.now()) / 3600000;
+  const refundPct = hoursUntilFlight > 48 ? 75 : hoursUntilFlight > 24 ? 50 : 25;
+  const refundAmount = Math.round(booking.amount * refundPct / 100);
+
+  const body = document.getElementById('cancelModalBody');
+  body.innerHTML = `
+    <div style="background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px">Cancellation for ${booking.id}</div>
+      <div style="font-size:13px;color:var(--muted)">${booking.route} · ${new Date(booking.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Reason for Cancellation</label>
+      <select class="select" id="cancelReason">
+        <option value="">— Select a reason —</option>
+        <option value="Change of plans">Change of plans</option>
+        <option value="Medical emergency">Medical emergency</option>
+        <option value="Work commitments">Work commitments</option>
+        <option value="Found better price">Found better price</option>
+        <option value="Family emergency">Family emergency</option>
+        <option value="Travel restrictions">Travel restrictions</option>
+        <option value="Visa issues">Visa issues</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="refund-calc">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Refund Calculation</div>
+      <div class="refund-calc-row"><span>Booking amount</span><span>₹${booking.amount.toLocaleString('en-IN')}</span></div>
+      <div class="refund-calc-row"><span>Cancellation policy (${hoursUntilFlight.toFixed(0)}h before flight)</span><span style="color:var(--red)">−${100-refundPct}%</span></div>
+      <div class="refund-calc-row"><span>Airline cancellation fee</span><span style="color:var(--red)">−₹0</span></div>
+      <div class="refund-calc-row total"><span>You will receive</span><span>₹${refundAmount.toLocaleString('en-IN')}</span></div>
+    </div>
+
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:16px">
+      ℹ️ Refund Policy: 75% if 48h+ before departure · 50% if 24–48h · 25% if under 24h. Refund credited within 3–5 business days.
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-danger" style="flex:1" onclick="confirmCancel('${bookingId}',${refundAmount},'${refundPct}')">Confirm Cancellation</button>
+      <button class="btn btn-outline" onclick="closeModal('cancelModal')">Keep Booking</button>
+    </div>
+  `;
+  openModal('cancelModal');
+}
+
+function confirmCancel(bookingId, refundAmount, refundPct) {
+  const reason = document.getElementById('cancelReason').value;
+  if (!reason) { alert('Please select a reason for cancellation.'); return; }
+
+  const booking = BOOKINGS.find(b => b.id === bookingId);
+  if (booking) {
+    booking.status       = 'cancelled';
+    booking.refundStatus = 'pending';
+    booking.refundAmount = refundAmount;
+    booking.cancelReason = reason;
+    booking.cancelledAt  = Date.now();
+  }
+  closeModal('cancelModal');
+  showToastRaw('ok', 'Booking Cancelled', `Refund of ₹${refundAmount.toLocaleString('en-IN')} (${refundPct}%) is being processed.`);
+  renderRefundsPage();
+}
+
+/* ─────────────────────────────────────────────
+   MODALS
+───────────────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', e => { if (e.target === mo) mo.classList.remove('open'); });
+});
+
+/* ─────────────────────────────────────────────
+   SIDEBAR HELPERS
+───────────────────────────────────────────── */
+function updatePricingAlerts() {
+  const alerts = document.getElementById('pricingAlerts');
+  const cards = Object.values(displayedCards);
+  if (cards.length === 0) { alerts.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">Price alerts will appear as flights load.</div>'; return; }
+  const items = cards.map(c => {
+    if (!c._pricing) return null;
+    const p = c._pricing;
+    const fn = c.id.replace('card-','');
+    const change = Math.round((p.multiplier-1)*100);
+    if (Math.abs(change) < 3) return null;
+    const type = change > 0 ? 'surge' : 'drop';
+    return { fn, change, type, price: p.current };
+  }).filter(Boolean);
+  if (items.length === 0) { alerts.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">All prices at baseline.</div>'; return; }
+  alerts.innerHTML = items.map(item => `
+    <div style="background:var(--${item.type==='surge'?'red':'green'}-bg);border:1px solid var(--${item.type==='surge'?'red':'green'}-bd);border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700">${item.fn}</div><div style="font-size:11px;color:var(--muted)">₹${item.price.toLocaleString('en-IN')}</div></div>
+      <span style="font-size:12px;font-weight:700;color:var(--${item.type==='surge'?'red':'green'})">${item.type==='surge'?'↑ +':'↓ '}${Math.abs(item.change)}%</span>
+    </div>
+  `).join('');
+}
+
+function renderQuickChips() {
+  document.getElementById('quickChips').innerHTML = KNOWN_FLIGHTS.map(fn =>
+    `<span class="chip" onclick="quickAdd('${fn}')">${fn}</span>`
+  ).join('');
+}
+function quickAdd(fn) { document.getElementById('flightInput').value = fn; trackFlight(); }
+
+/* ─────────────────────────────────────────────
+   SUMMARY BAR
+───────────────────────────────────────────── */
+function updateSummaryBar() {
+  const counts = { total:0, ON_TIME:0, DELAYED:0, BOARDING:0, DEPARTED:0 };
+  Object.keys(displayedCards).forEach(fn => {
+    counts.total++;
+    const badge = displayedCards[fn].querySelector('.status-badge');
+    if (!badge) return;
+    const text = badge.textContent.trim().toUpperCase().replace(/ /g,'_');
+    if (counts[text] !== undefined) counts[text]++;
+  });
+  const bar = document.getElementById('summaryBar');
+  if (counts.total === 0) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <span class="summary-pill pill-all">✈ ${counts.total} flights</span>
+    ${counts.ON_TIME  ? `<span class="summary-pill pill-ontime">✅ ${counts.ON_TIME} On Time</span>` : ''}
+    ${counts.DELAYED  ? `<span class="summary-pill pill-delayed">⏱ ${counts.DELAYED} Delayed</span>` : ''}
+    ${counts.BOARDING ? `<span class="summary-pill pill-boarding">🚪 ${counts.BOARDING} Boarding</span>` : ''}
+    ${counts.DEPARTED ? `<span class="summary-pill pill-departed">🛫 ${counts.DEPARTED} Departed</span>` : ''}
+  `;
+}
+
+/* ─────────────────────────────────────────────
+   NOTIFICATIONS
+───────────────────────────────────────────── */
+function addSidebarNotification(notification) {
+  const list = document.getElementById('notifList');
+  const empty = list.querySelector('.notif-empty');
+  if (empty) empty.remove();
+  const type = notifTypeClass(notification.notificationType);
+  const time = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const item = document.createElement('div');
+  item.className = `notif-item ${type}`;
+  item.innerHTML = `<div class="notif-header"><span class="notif-flight">${notification.flightNumber}</span><span class="notif-time">${time}</span></div><div class="notif-msg">${notification.message}</div>`;
+  list.insertBefore(item, list.firstChild);
+  notifCount++;
+  while (list.children.length > MAX_NOTIF) list.removeChild(list.lastChild);
+}
+
+function showToast(notification) { showToastRaw(notifTypeClass(notification.notificationType), notification.flightNumber, notification.message); }
+function showToastRaw(type, title, msg) {
+  const container = document.getElementById('toastContainer');
+  while (container.children.length >= MAX_TOAST) container.removeChild(container.lastChild);
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<div class="toast-title">${title}</div><div>${msg}</div>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 350); }, 5500);
+}
+
+/* ─────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────── */
+function statusClass(s) {
+  return { ON_TIME:'on-time', DELAYED:'delayed', BOARDING:'boarding', DEPARTED:'departed', LANDED:'landed', CANCELLED:'cancelled' }[s] || 'on-time';
+}
+function statusLabel(s) {
+  return { ON_TIME:'On Time', DELAYED:'Delayed', BOARDING:'Boarding', DEPARTED:'Departed', LANDED:'Landed', CANCELLED:'Cancelled' }[s] || s;
+}
+function notifTypeClass(t) {
+  return { DELAY_UPDATE:'delay', BOARDING_STARTED:'boarding', STATUS_NORMALISED:'ok', DEPARTURE_CHANGE:'info', ETA_UPDATE:'info', CANCELLATION:'delay', PRICE_FREEZE:'price', PRICE_ALERT:'price' }[t] || 'info';
+}
+function formatTime(isoStr) {
+  if (!isoStr) return '—';
+  try { return new Date(isoStr).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+  catch { return isoStr.substring(11,16); }
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+renderQuickChips();
+connectWebSocket();
+
+// Simulate live price updates every 45 seconds
+setInterval(() => {
+  Object.keys(displayedCards).forEach(fn => {
+    const card = displayedCards[fn];
+    if (!card) return;
+    const oldPrice = card._pricing?.current || 0;
+    const f = DEMO_FLIGHTS[fn] || { flightNumber:fn, origin:'DEL', destination:'BOM' };
+    const newPricing = getFlightPrice(f);
+    card._pricing = newPricing;
+    const priceEl = card.querySelector('.price-current');
+    if (priceEl && !frozenPrices.find(fp=>fp.flight===fn)) {
+      priceEl.textContent = `₹${newPricing.current.toLocaleString('en-IN')}`;
+      if (Math.abs(newPricing.current - oldPrice) > 100) {
+        addSidebarNotification({ flightNumber:fn, notificationType:'PRICE_ALERT', message:`Price updated to ₹${newPricing.current.toLocaleString('en-IN')} (${newPricing.current>oldPrice?'+':''}${Math.round((newPricing.current-oldPrice)/oldPrice*100)}%)` });
+      }
+    }
+  });
+  updatePricingAlerts();
+}, 45000);
+
+// Update frozen price timers every minute
+setInterval(() => {
+  frozenPrices.forEach((fp, i) => {
+    if (Date.now() > fp.expiresAt) { frozenPrices.splice(i, 1); showToastRaw('info', 'Price Freeze Expired', `Your frozen price for ${fp.flight} has expired.`); }
+  });
+  updateFrozenPricesSidebar();
+}, 60000);
+</script>
+</body>
+</html>
