@@ -1,0 +1,3811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MakeMyTrip – Live Flight Tracker & Booking</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #f9f8f6;
+  --border: #e8e4dd;
+  --text: #1c1917;
+  --muted: #78716c;
+  --accent: #dc2626;
+  --accent2: #ea580c;
+  --accent-hover: #b91c1c;
+
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --green-bd: #bbf7d0;
+
+  --amber: #b45309;
+  --amber-bg: #fffbeb;
+  --amber-bd: #fde68a;
+
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --red-bd: #fecaca;
+
+  --blue: #2563eb;
+  --blue-bg: #eff6ff;
+  --blue-bd: #bfdbfe;
+
+  --purple: #7c3aed;
+  --purple-bg: #f5f3ff;
+  --purple-bd: #ddd6fe;
+
+  --orange: #c2410c;
+  --orange-bg: #fff7ed;
+  --orange-bd: #fed7aa;
+
+  --gray-bg: #f5f5f4;
+  --gray-bd: #e7e5e4;
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Header ── */
+header {
+  background: var(--text);
+  padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+}
+.logo-name {
+  font-size: 22px; font-weight: 700; letter-spacing: -0.6px;
+  color: #fff;
+}
+.logo-name span { color: #fb923c; }
+.header-nav { display: flex; align-items: center; gap: 4px; overflow-x: auto; flex-shrink: 1; padding: 0 4px; }
+.header-nav::-webkit-scrollbar { display: none; }
+.nav-btn {
+  padding: 6px 12px; border-radius: 8px; border: none;
+  font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  background: rgba(255,255,255,.1); color: rgba(255,255,255,.8);
+  font-family: inherit; transition: all .2s; flex-shrink: 0;
+}
+.nav-btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+.nav-btn.active { background: var(--accent); color: #fff; }
+.ws-status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.5);
+}
+.ws-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b7280; transition: background .3s;
+}
+.ws-dot.connected  { background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
+.ws-dot.connecting { background: #fbbf24; animation: blink 1s infinite; }
+.ws-dot.error      { background: #f87171; }
+@keyframes blink { 50% { opacity: .3; } }
+
+/* ── Pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Layout ── */
+.main-wrap {
+  max-width: 1340px; margin: 0 auto; padding: 28px 24px;
+  display: grid; grid-template-columns: 1fr 380px; gap: 24px;
+}
+@media (max-width: 960px) { .main-wrap { grid-template-columns: 1fr; } }
+.page-full { max-width: 1340px; margin: 0 auto; padding: 28px 24px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 9px 20px; border-radius: 9px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all .18s; letter-spacing: .2px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(220,38,38,.35); }
+.btn-primary:active { transform: translateY(0); }
+.btn-outline { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--surface2); color: var(--text); }
+.btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 7px; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #15803d; transform: translateY(-1px); }
+.btn-purple { background: var(--purple); color: #fff; }
+.btn-purple:hover { background: #6d28d9; transform: translateY(-1px); }
+.btn-amber { background: var(--amber); color: #fff; }
+.btn-amber:hover { background: #92400e; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+
+/* ── Inputs ── */
+.input {
+  border: 1.5px solid var(--border); border-radius: 9px;
+  padding: 9px 14px; font-size: 14px; font-family: inherit;
+  color: var(--text); background: var(--surface2);
+  transition: border-color .2s; width: 100%;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.select {
+  border: 1.5px solid var(--border); border-radius: 9px;
+  padding: 9px 14px; font-size: 13px; font-family: inherit;
+  color: var(--text); background: var(--surface2);
+  transition: border-color .2s; width: 100%; cursor: pointer;
+}
+.select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Track bar ── */
+.track-bar {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 16px 20px;
+  margin-bottom: 22px; display: flex; gap: 10px; align-items: center;
+  box-shadow: var(--shadow); flex-wrap: wrap;
+}
+.track-bar input {
+  flex: 1; min-width: 120px; border: 1.5px solid var(--border);
+  border-radius: 9px; padding: 9px 14px; font-size: 14px;
+  font-family: 'Space Mono', monospace; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text); background: var(--surface2); transition: border-color .2s;
+}
+.track-bar input:focus { outline: none; border-color: var(--accent); }
+.track-bar input::placeholder { font-family: inherit; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 13px; }
+.user-input { width: 140px; min-width: 0; flex: none; font-family: 'DM Sans', sans-serif !important; font-size: 13px !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* ── Summary pills ── */
+.summary-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary-pill {
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.pill-all      { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+.pill-ontime   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.pill-delayed  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-bd); }
+.pill-boarding { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.pill-departed { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+
+/* ── Flight cards ── */
+#flightGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+}
+.flight-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 20px;
+  box-shadow: var(--shadow); transition: box-shadow .2s, transform .2s;
+  position: relative; overflow: hidden; cursor: pointer;
+}
+.flight-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.flight-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+}
+.card-on-time::before  { background: var(--green); }
+.card-delayed::before  { background: var(--red); }
+.card-boarding::before { background: var(--amber); }
+.card-departed::before { background: var(--blue); }
+.card-landed::before   { background: var(--purple); }
+.card-cancelled::before { background: #a8a29e; }
+@keyframes status-flash { 0% { background: var(--flash-color, #fffde7); } 100% { background: var(--surface); } }
+.card-flash { animation: status-flash 1.8s ease-out; }
+
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.flight-num { font-size: 18px; font-weight: 800; letter-spacing: .5px; font-family: 'Space Mono', monospace; }
+.status-badge {
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+}
+.badge-on-time   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.badge-delayed   { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-bd); }
+.badge-boarding  { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.badge-departed  { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+.badge-landed    { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); }
+.badge-cancelled { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+
+.route { display: flex; align-items: center; margin-bottom: 14px; }
+.airport { text-align: center; }
+.iata { font-size: 26px; font-weight: 800; line-height: 1; font-family: 'Space Mono', monospace; }
+.city { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.route-line { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; padding: 0 10px; }
+.route-track { width: 100%; height: 1.5px; background: var(--border); position: relative; }
+.route-track::after { content: '✈'; position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-size: 14px; color: var(--accent); }
+.route-label { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.time-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+.time-value { font-size: 15px; font-weight: 700; font-family: 'Space Mono', monospace; }
+.time-orig  { font-size: 11px; color: var(--muted); text-decoration: line-through; }
+.time-new   { font-size: 15px; font-weight: 700; font-family: 'Space Mono', monospace; color: var(--red); }
+
+.delay-bar {
+  background: var(--red-bg); border: 1px solid var(--red-bd);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;
+  font-size: 12px; color: var(--red); display: none; align-items: center; gap: 6px;
+}
+.delay-bar.visible { display: flex; }
+
+/* Price tag on card */
+.price-tag {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
+  font-size: 12px;
+}
+.price-current { font-size: 17px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; }
+.price-original { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+.price-surge { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+.price-drop { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+.price-frozen { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; }
+
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: var(--muted); border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.card-actions { display: flex; gap: 6px; align-items: center; }
+.countdown { font-weight: 600; color: var(--text); }
+.countdown.urgent { color: var(--red); }
+.remove-btn, .book-btn, .history-btn, .freeze-btn {
+  background: none; border: 1px solid var(--border); font-size: 12px;
+  cursor: pointer; color: var(--muted); padding: 3px 9px;
+  border-radius: 5px; transition: all .15s; font-family: inherit; font-weight: 500;
+}
+.remove-btn:hover { background: var(--red-bg); color: var(--red); border-color: var(--red-bd); }
+.book-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.history-btn:hover { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-bd); }
+.freeze-btn:hover { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-bd); }
+
+/* ── Empty state ── */
+.empty-state { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon  { font-size: 48px; margin-bottom: 14px; }
+.empty-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.empty-sub   { font-size: 13px; line-height: 1.6; }
+
+/* ── Sidebar ── */
+.sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Quick chips ── */
+.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip {
+  padding: 4px 10px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 11px; font-family: 'Space Mono', monospace; font-weight: 600;
+  cursor: pointer; color: var(--muted); transition: all .15s;
+}
+.chip:hover { background: var(--red-bg); border-color: var(--red-bd); color: var(--red); }
+
+/* ── Notifications ── */
+.notif-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.notif-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+.notif-item {
+  background: var(--surface2); border-radius: 8px;
+  border-left: 3px solid var(--border); padding: 10px 12px;
+  font-size: 12px; line-height: 1.5;
+  animation: slide-down .25s ease;
+}
+@keyframes slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.notif-item.delay    { border-left-color: var(--red);   background: var(--red-bg); }
+.notif-item.boarding { border-left-color: var(--amber); background: var(--amber-bg); }
+.notif-item.ok       { border-left-color: var(--green); background: var(--green-bg); }
+.notif-item.info     { border-left-color: var(--blue);  background: var(--blue-bg); }
+.notif-item.price    { border-left-color: var(--purple); background: var(--purple-bg); }
+.notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.notif-flight { font-weight: 700; font-family: 'Space Mono', monospace; }
+.notif-time   { font-size: 10px; color: var(--muted); }
+
+/* ── Toast ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column-reverse; gap: 10px; z-index: 200; }
+.toast {
+  background: var(--surface); border-radius: 12px; padding: 14px 18px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  max-width: 340px; font-size: 13px; line-height: 1.5;
+  animation: toast-in .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(40px) scale(.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+.toast.hiding { animation: toast-out .3s ease forwards; }
+@keyframes toast-out { to { opacity: 0; transform: translateX(50px); } }
+.toast-title { font-weight: 700; margin-bottom: 4px; }
+.toast.delay    { border-left: 4px solid var(--red); }
+.toast.boarding { border-left: 4px solid var(--amber); }
+.toast.ok       { border-left: 4px solid var(--green); }
+.toast.info     { border-left: 4px solid var(--blue); }
+.toast.price    { border-left: 4px solid var(--purple); }
+
+/* ── Pricing Engine Panel ── */
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+  margin-bottom: 24px;
+}
+.pricing-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px 22px;
+  box-shadow: var(--shadow); position: relative; overflow: hidden;
+}
+.pricing-card.peak { border-color: var(--red-bd); }
+.pricing-card.normal { border-color: var(--green-bd); }
+.pricing-card.off-peak { border-color: var(--blue-bd); }
+.pricing-card::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  width: 60px; height: 60px; border-radius: 0 0 0 60px;
+  opacity: .08;
+}
+.pricing-card.peak::after { background: var(--red); }
+.pricing-card.normal::after { background: var(--green); }
+.pricing-card.off-peak::after { background: var(--blue); }
+.pc-route { font-size: 20px; font-weight: 800; font-family: 'Space Mono', monospace; margin-bottom: 4px; }
+.pc-tier { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.pc-tier-badge { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; }
+.tier-peak    { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
+.tier-normal  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+.tier-offpeak { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-bd); }
+.pc-price { font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -1px; }
+.pc-price sub { font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.pc-base  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pc-multiplier { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.pc-factor { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.pc-actions { display: flex; gap: 8px; margin-top: 14px; }
+.demand-bar { margin-top: 12px; }
+.demand-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.demand-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.demand-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+.demand-high  { background: linear-gradient(90deg, var(--red), #f87171); }
+.demand-med   { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+.demand-low   { background: linear-gradient(90deg, var(--blue), #60a5fa); }
+
+/* ── Price History ── */
+.history-section { margin-bottom: 28px; }
+.history-chart-wrap { position: relative; width: 100%; height: 280px; }
+
+/* ── Price Freeze ── */
+.freeze-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.freeze-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 2px solid var(--purple-bd); padding: 20px;
+  box-shadow: var(--shadow);
+}
+.freeze-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.freeze-badge { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.freeze-price { font-size: 24px; font-weight: 800; color: var(--purple); font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+.freeze-meta  { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.freeze-timer { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--amber); margin-top: 10px; }
+.freeze-progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.freeze-bar  { height: 100%; border-radius: 2px; background: var(--purple); transition: width 1s linear; }
+
+/* ── Refund/Cancellation ── */
+.booking-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+.booking-item {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 22px;
+  box-shadow: var(--shadow); display: grid;
+  grid-template-columns: 1fr auto; gap: 14px; align-items: start;
+}
+.booking-info {}
+.booking-route { font-size: 16px; font-weight: 700; font-family: 'Space Mono', monospace; margin-bottom: 4px; }
+.booking-meta  { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.booking-amount { font-size: 20px; font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; }
+.booking-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.refund-status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px; }
+.status-active    { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+.status-cancelled { background: var(--gray-bg);   color: var(--muted);  border: 1px solid var(--gray-bd); }
+.status-pending   { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-bd); }
+.status-processed { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+.status-completed { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-bd); }
+
+/* ── Refund tracker ── */
+.refund-tracker {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 22px;
+  box-shadow: var(--shadow); margin-bottom: 24px;
+}
+.tracker-steps { display: flex; align-items: center; gap: 0; margin: 20px 0; }
+.tracker-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.step-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; position: relative; z-index: 1;
+}
+.step-done    { background: var(--green); color: #fff; }
+.step-active  { background: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--red-bg); }
+.step-pending { background: var(--border); color: var(--muted); }
+.step-line { flex: 1; height: 2px; background: var(--border); margin-top: -40px; }
+.step-line.done { background: var(--green); }
+.step-label { font-size: 10px; color: var(--muted); text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+
+/* ── Pricing history chart ── */
+.chart-legend { display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+.chart-legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* ── Section divider ── */
+.section-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.section-divider h2 {
+  font-size: 18px; font-weight: 700; color: var(--text); white-space: nowrap;
+}
+.section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300; padding: 20px; opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border-radius: 18px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  max-width: 520px; width: 100%; padding: 28px;
+  transform: scale(.95); transition: transform .25s;
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 7px; }
+.refund-calc {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin: 16px 0;
+}
+.refund-calc-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+.refund-calc-row.total { font-weight: 700; font-size: 15px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; color: var(--green); }
+
+/* ── Pricing banner ── */
+.pricing-banner {
+  background: linear-gradient(135deg, #1c1917 0%, #292524 100%);
+  border-radius: var(--radius); padding: 22px 26px;
+  margin-bottom: 24px; color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+}
+.pb-left h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.pb-left p  { font-size: 13px; color: rgba(255,255,255,.6); }
+.pb-badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.9); border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 600; }
+
+/* ── Stat cards ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface2); border-radius: 10px;
+  padding: 16px 18px;
+}
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.stat-up    { color: var(--red); }
+.stat-down  { color: var(--green); }
+
+/* ── Scroll ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ══════════════════════════════════════
+   SEAT MAP STYLES
+══════════════════════════════════════ */
+.seat-page-wrap { max-width: 1340px; margin: 0 auto; padding: 28px 24px; display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+@media (max-width:900px){ .seat-page-wrap { grid-template-columns:1fr; } }
+
+.aircraft-fuselage {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.fuselage-nose {
+  background: linear-gradient(180deg, #1c1917 0%, #292524 100%);
+  padding: 16px 24px 12px; display: flex; align-items: center; justify-content: space-between;
+}
+.fuselage-nose h3 { color: #fff; font-size: 15px; font-weight: 700; }
+.fuselage-nose span { color: rgba(255,255,255,.5); font-size: 12px; }
+
+.cabin-body { padding: 20px 24px; overflow-x: auto; }
+.cabin-aisle {
+  display: flex; flex-direction: column; gap: 5px;
+  min-width: 420px;
+}
+.seat-row { display: flex; align-items: center; gap: 0; }
+.row-num { width: 28px; font-size: 11px; color: var(--muted); font-weight: 700; text-align: center; flex-shrink: 0; font-family: 'Space Mono', monospace; }
+.seat-group { display: flex; gap: 5px; }
+.aisle-gap { width: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); letter-spacing:.4px; }
+.seat-row-header { display: flex; align-items: center; gap: 0; margin-bottom: 6px; }
+.col-label { font-size: 10px; color: var(--muted); font-weight: 700; text-align: center; }
+
+.seat {
+  width: 38px; height: 34px; border-radius: 7px 7px 4px 4px;
+  border: 1.5px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; transition: all .15s;
+  position: relative; flex-shrink: 0;
+  font-family: 'Space Mono', monospace;
+}
+.seat::after { content: ''; position: absolute; bottom: 2px; left: 4px; right: 4px; height: 3px; background: rgba(0,0,0,.08); border-radius: 2px; }
+.seat:hover:not(.seat-occupied):not(.seat-selected) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+
+.seat-available { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
+.seat-available:hover { background: var(--green); color: #fff; border-color: var(--green); }
+.seat-occupied  { background: var(--gray-bg); border-color: var(--gray-bd); color: #c9c5c0; cursor: not-allowed; }
+.seat-selected  { background: var(--accent); border-color: var(--accent-hover); color: #fff; box-shadow: 0 0 0 3px rgba(220,38,38,.25); }
+.seat-premium   { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber); }
+.seat-premium:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+.seat-premium.seat-selected { background: var(--amber); border-color: #92400e; color: #fff; box-shadow: 0 0 0 3px rgba(180,83,9,.25); }
+.seat-business  { background: var(--purple-bg); border-color: var(--purple-bd); color: var(--purple); }
+.seat-business:hover { background: var(--purple); color: #fff; border-color: var(--purple); }
+.seat-business.seat-selected { background: var(--purple); border-color: #5b21b6; color: #fff; box-shadow: 0 0 0 3px rgba(124,58,237,.25); }
+.seat-exit { border-top: 3px solid var(--red) !important; }
+
+.cabin-section-label {
+  background: var(--surface2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 6px 0 6px 28px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px; margin: 8px -24px;
+}
+
+.seat-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--border); font-size: 11px; }
+.legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.legend-swatch { width: 20px; height: 18px; border-radius: 5px 5px 3px 3px; border: 1.5px solid; }
+.ls-avail    { background: var(--green-bg); border-color: var(--green-bd); }
+.ls-premium  { background: var(--amber-bg); border-color: var(--amber-bd); }
+.ls-business { background: var(--purple-bg); border-color: var(--purple-bd); }
+.ls-occupied { background: var(--gray-bg); border-color: var(--gray-bd); }
+.ls-selected { background: var(--accent); border-color: var(--accent-hover); }
+
+/* Seat sidebar */
+.seat-sidebar { display: flex; flex-direction: column; gap: 16px; }
+.seat-summary-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px;
+  box-shadow: var(--shadow);
+}
+.selected-seat-display {
+  background: var(--accent); color: #fff; border-radius: 10px;
+  padding: 16px; text-align: center; margin-bottom: 14px;
+}
+.selected-seat-num { font-size: 36px; font-weight: 800; font-family: 'Space Mono', monospace; }
+.selected-seat-type { font-size: 12px; opacity: .8; margin-top: 2px; }
+.seat-detail-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.seat-detail-row:last-child { border-bottom: none; }
+.seat-prefs-saved { background: var(--green-bg); border: 1px solid var(--green-bd); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--green); display: none; }
+.seat-prefs-saved.show { display: block; }
+.pref-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
+  border-radius: 20px; background: var(--surface2); border: 1px solid var(--border);
+  font-size: 11px; cursor: pointer; color: var(--muted); transition: all .15s; margin: 3px;
+}
+.pref-chip.active { background: var(--blue-bg); border-color: var(--blue-bd); color: var(--blue); }
+
+/* Real-time seat ticker */
+.seat-ticker { background: var(--amber-bg); border: 1px solid var(--amber-bd); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--amber); animation: pulse-amber 2s infinite; }
+@keyframes pulse-amber { 0%,100%{opacity:1} 50%{opacity:.7} }
+
+/* Flight selector tabs */
+.flight-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.flight-tab {
+  padding: 8px 16px; border-radius: 9px; border: 1.5px solid var(--border);
+  font-size: 13px; font-weight: 600; cursor: pointer; background: var(--surface);
+  font-family: 'Space Mono', monospace; transition: all .15s; color: var(--muted);
+}
+.flight-tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+.flight-tab:hover:not(.active) { border-color: var(--text); color: var(--text); }
+
+/* ══════════════════════════════════════
+   HOTEL ROOM STYLES
+══════════════════════════════════════ */
+.hotel-page-wrap { max-width: 1340px; margin: 0 auto; padding: 28px 24px; }
+
+.hotel-header-band {
+  background: linear-gradient(135deg, #0c1445 0%, #1e3a8a 50%, #1d4ed8 100%);
+  border-radius: var(--radius); padding: 28px 32px; margin-bottom: 28px;
+  color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.hotel-header-band h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.hotel-header-band p  { font-size: 13px; color: rgba(255,255,255,.6); }
+.hotel-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.hotel-filter-btn {
+  padding: 7px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.1); color: rgba(255,255,255,.85);
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.hotel-filter-btn:hover, .hotel-filter-btn.active { background: rgba(255,255,255,.25); color: #fff; border-color: rgba(255,255,255,.5); }
+
+.hotel-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+@media (max-width:900px){ .hotel-layout { grid-template-columns: 1fr; } }
+
+/* Hotel list sidebar */
+.hotel-list { display: flex; flex-direction: column; gap: 10px; }
+.hotel-item {
+  background: var(--surface); border-radius: 12px; border: 1.5px solid var(--border);
+  padding: 14px 16px; cursor: pointer; transition: all .18s; box-shadow: var(--shadow);
+}
+.hotel-item:hover { border-color: var(--blue-bd); box-shadow: var(--shadow-lg); }
+.hotel-item.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.hotel-item-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.hotel-item-loc  { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.hotel-item-price { font-size: 15px; font-weight: 700; color: var(--blue); font-family: 'Space Mono', monospace; }
+.hotel-stars { color: #f59e0b; font-size: 12px; letter-spacing: 1px; margin-bottom: 4px; }
+
+/* Room grid */
+.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+.room-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1.5px solid var(--border); overflow: hidden;
+  box-shadow: var(--shadow); transition: all .2s; cursor: pointer;
+}
+.room-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--blue-bd); }
+.room-card.selected-room { border-color: var(--blue); border-width: 2px; box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
+
+/* 3D Room preview — CSS art */
+.room-preview {
+  height: 180px; position: relative; overflow: hidden;
+  background: #e8e4dd;
+}
+.room-preview-3d {
+  width: 100%; height: 100%; position: relative;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+/* Floor */
+.room-floor {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(180deg, #d4c5a0 0%, #c9b88e 100%);
+  transform: perspective(300px) rotateX(30deg);
+  transform-origin: bottom center;
+}
+/* Wall back */
+.room-wall-back {
+  position: absolute; top: 0; left: 0; right: 0; height: 60%;
+}
+/* Window */
+.room-window {
+  position: absolute; top: 18px; right: 30px;
+  width: 60px; height: 50px; border: 3px solid #8b7355;
+  border-radius: 3px;
+}
+.room-window-pane {
+  width: 100%; height: 100%;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px;
+}
+.room-window-pane div { border-radius: 1px; }
+
+/* Furniture */
+.room-furniture { position: absolute; bottom: 30%; left: 50%; transform: translateX(-50%); }
+.room-bed {
+  width: 90px; height: 45px; border-radius: 4px;
+  position: relative; box-shadow: 2px 4px 8px rgba(0,0,0,.2);
+}
+.room-pillow {
+  position: absolute; top: 4px; border-radius: 3px;
+  width: 22px; height: 14px;
+}
+.room-lamp {
+  position: absolute; bottom: 35%; right: 25px;
+  width: 18px; height: 34px;
+}
+.room-lamp-base { width: 18px; height: 8px; background: #8b7355; border-radius: 2px; }
+.room-lamp-shade {
+  width: 0; height: 0; border-left: 12px solid transparent;
+  border-right: 12px solid transparent; border-bottom: 20px solid rgba(255,220,100,.9);
+  margin: 0 auto; margin-bottom: 2px; filter: drop-shadow(0 0 8px rgba(255,220,100,.6));
+}
+.room-lamp-glow {
+  position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,220,100,.3) 0%, transparent 70%);
+}
+/* View badge */
+.view-badge {
+  position: absolute; top: 10px; left: 10px;
+  padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 700;
+  backdrop-filter: blur(4px);
+}
+/* Availability badge */
+.avail-badge {
+  position: absolute; top: 10px; right: 10px;
+  padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 700;
+}
+.avail-few   { background: rgba(220,38,38,.85); color: #fff; }
+.avail-good  { background: rgba(22,163,74,.85); color: #fff; }
+.avail-sold  { background: rgba(100,100,100,.85); color: #fff; }
+
+.room-info { padding: 16px 18px; }
+.room-type { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.room-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+.room-amenities { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.amenity-tag { padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; font-size: 10px; color: var(--muted); }
+.room-price-row { display: flex; align-items: center; justify-content: space-between; }
+.room-price { font-size: 18px; font-weight: 700; color: var(--blue); font-family: 'Space Mono', monospace; }
+.room-per-night { font-size: 11px; color: var(--muted); }
+.room-upgrade-tag { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); border-radius: 5px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+
+/* Hotel right panel */
+.hotel-right { display: flex; flex-direction: column; gap: 20px; }
+.hotel-name-bar {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 22px;
+  box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.hotel-name-bar h3 { font-size: 18px; font-weight: 700; }
+.hotel-name-bar p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.availability-ticker {
+  font-size: 12px; color: var(--red); font-weight: 600;
+  background: var(--red-bg); border: 1px solid var(--red-bd);
+  border-radius: 6px; padding: 5px 10px;
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+@keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+/* Room selected panel */
+.room-booking-panel {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 20px;
+  box-shadow: var(--shadow);
+}
+.selected-room-visual {
+  height: 120px; border-radius: 10px; margin-bottom: 14px;
+  overflow: hidden; position: relative;
+}
+.room-pref-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.pref-tag {
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--muted); transition: all .15s;
+}
+.pref-tag.on { background: var(--blue-bg); border-color: var(--blue-bd); color: var(--blue); }
+
+/* Saved preferences panel */
+.saved-prefs-panel {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.pref-profile { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.pref-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: #fff; display: flex; align-items: center;
+  justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+.saved-pref-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  border-radius: 20px; font-size: 11px; margin: 3px;
+  background: var(--blue-bg); border: 1px solid var(--blue-bd); color: var(--blue);
+}
+
+/* Real-time availability animation */
+@keyframes seat-take {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.3); background: var(--red); }
+  100% { transform: scale(1); }
+}
+.seat-just-taken { animation: seat-take .5s ease; }
+
+/* ══════════════════════════════════════
+   RESPONSIVE / MOBILE
+══════════════════════════════════════ */
+.hamburger {
+  display: none; background: none; border: 1px solid rgba(255,255,255,.2);
+  color: #fff; font-size: 18px; padding: 6px 10px; border-radius: 7px;
+  cursor: pointer; line-height: 1;
+}
+@media (max-width: 900px) {
+  header { padding: 0 16px; flex-wrap: wrap; height: auto; min-height: 56px; gap: 8px; }
+  .hamburger { display: flex; align-items: center; }
+  .header-nav {
+    display: none; width: 100%; flex-direction: column; gap: 4px;
+    padding: 8px 0 12px; border-top: 1px solid rgba(255,255,255,.1);
+    order: 3;
+  }
+  .header-nav.open { display: flex; }
+  .nav-btn { width: 100%; text-align: left; padding: 10px 14px; border-radius: 7px; }
+  .ws-status { order: 2; margin-left: auto; }
+  .ws-label-text { display: none; }
+  .main-wrap { grid-template-columns: 1fr; padding: 16px 14px; gap: 16px; }
+  .page-full { padding: 16px 14px; }
+  .seat-page-wrap { grid-template-columns: 1fr; padding: 16px 14px; gap: 16px; }
+  .hotel-layout { grid-template-columns: 1fr; }
+  .hotel-page-wrap { padding: 16px 14px; }
+  .hotel-header-band { padding: 18px 18px; }
+  .hotel-header-band h2 { font-size: 17px; }
+  .cabin-body { padding: 12px 12px; }
+  .cabin-aisle { min-width: 340px; }
+  .seat { width: 32px; height: 29px; font-size: 9px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  #flightGrid { grid-template-columns: 1fr; }
+  .booking-item { grid-template-columns: 1fr; }
+  .tracker-steps { flex-wrap: nowrap; overflow-x: auto; }
+  .room-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .logo-name { font-size: 18px; }
+  .flight-tabs { gap: 5px; }
+  .flight-tab { padding: 6px 10px; font-size: 11px; }
+  .iata { font-size: 20px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .section-divider h2 { font-size: 15px; }
+}
+
+/* ══════════════════════════════════════
+   REVIEWS PAGE
+══════════════════════════════════════ */
+.reviews-page-wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+@media(max-width:900px){ .reviews-page-wrap { padding:16px 14px; } }
+
+.reviews-hero {
+  background: linear-gradient(135deg,#1c1917 0%,#3b1f0a 50%,#7c2d12 100%);
+  border-radius: var(--radius); padding: 28px 32px; margin-bottom: 28px; color:#fff;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+}
+.reviews-hero h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
+.reviews-hero p  { font-size:13px; color:rgba(255,255,255,.6); }
+.write-review-btn { background:#fff; color:var(--text); border:none; padding:10px 20px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; transition:all .2s; }
+.write-review-btn:hover { background:#f0ece8; transform:translateY(-1px); }
+
+/* Subject tabs */
+.review-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.review-tab {
+  padding:8px 18px; border-radius:9px; border:1.5px solid var(--border);
+  font-size:13px; font-weight:600; cursor:pointer; background:var(--surface);
+  color:var(--muted); font-family:inherit; transition:all .15s;
+}
+.review-tab.active { background:var(--text); color:#fff; border-color:var(--text); }
+.review-tab:hover:not(.active) { border-color:var(--text); color:var(--text); }
+
+/* Controls bar */
+.review-controls {
+  display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;
+}
+.review-search {
+  flex:1; min-width:160px; border:1.5px solid var(--border); border-radius:9px;
+  padding:9px 14px; font-size:13px; font-family:inherit; background:var(--surface2); color:var(--text);
+}
+.review-search:focus { outline:none; border-color:var(--accent); }
+.review-sort { border:1.5px solid var(--border); border-radius:9px; padding:9px 14px; font-size:13px; font-family:inherit; background:var(--surface2); color:var(--text); cursor:pointer; }
+.review-sort:focus { outline:none; border-color:var(--accent); }
+.star-filter { display:flex; gap:5px; }
+.star-filter-btn {
+  padding:6px 10px; border-radius:7px; border:1px solid var(--border);
+  background:var(--surface2); font-size:12px; cursor:pointer; font-family:inherit; color:var(--muted); transition:all .15s;
+}
+.star-filter-btn.active { background:#fef3c7; border-color:#fde68a; color:#92400e; }
+
+/* Review card */
+.reviews-list { display:flex; flex-direction:column; gap:16px; }
+.review-card {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  padding:20px 22px; box-shadow:var(--shadow); transition:box-shadow .2s;
+}
+.review-card:hover { box-shadow:var(--shadow-lg); }
+.review-card.flagged { opacity:.55; border-style:dashed; }
+.rc-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+.rc-user { display:flex; align-items:center; gap:10px; }
+.rc-avatar {
+  width:40px; height:40px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:15px; font-weight:700; color:#fff; flex-shrink:0;
+}
+.rc-name { font-size:14px; font-weight:700; }
+.rc-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+.rc-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.rc-stars { color:#f59e0b; font-size:16px; letter-spacing:1px; }
+.rc-subject-tag { background:var(--blue-bg); border:1px solid var(--blue-bd); color:var(--blue); border-radius:5px; padding:2px 8px; font-size:10px; font-weight:700; }
+
+.rc-title { font-size:15px; font-weight:700; margin-bottom:6px; }
+.rc-body  { font-size:13px; color:var(--muted); line-height:1.7; margin-bottom:12px; }
+
+/* Photo uploads */
+.rc-photos { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.rc-photo {
+  width:72px; height:60px; border-radius:8px; overflow:hidden; cursor:pointer;
+  border:1px solid var(--border); flex-shrink:0; position:relative;
+}
+.rc-photo-inner {
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+}
+.rc-photo-label { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.45); color:#fff; font-size:8px; text-align:center; padding:2px; }
+
+/* Metrics bar */
+.rc-metrics { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+.rc-metric { font-size:12px; color:var(--muted); }
+.rc-metric strong { color:var(--text); }
+
+/* Action bar */
+.rc-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:10px; }
+.rc-action-btn {
+  background:none; border:1px solid var(--border); border-radius:7px; padding:5px 12px;
+  font-size:12px; cursor:pointer; color:var(--muted); font-family:inherit; font-weight:500; transition:all .15s; display:flex; align-items:center; gap:4px;
+}
+.rc-action-btn:hover { background:var(--surface2); color:var(--text); }
+.rc-action-btn.helpful.active { background:var(--green-bg); border-color:var(--green-bd); color:var(--green); }
+.rc-action-btn.flag.active    { background:var(--red-bg); border-color:var(--red-bd); color:var(--red); }
+.rc-verified { margin-left:auto; font-size:11px; color:var(--green); font-weight:600; display:flex; align-items:center; gap:4px; }
+
+/* Replies */
+.rc-replies { margin-top:12px; padding-left:16px; border-left:2px solid var(--border); display:flex; flex-direction:column; gap:10px; }
+.reply-item { font-size:12px; color:var(--muted); background:var(--surface2); border-radius:8px; padding:10px 12px; }
+.reply-author { font-weight:700; color:var(--text); margin-bottom:3px; font-size:12px; }
+.reply-input-wrap { display:flex; gap:8px; margin-top:8px; }
+.reply-input { flex:1; border:1.5px solid var(--border); border-radius:8px; padding:8px 12px; font-size:12px; font-family:inherit; background:var(--surface); }
+.reply-input:focus { outline:none; border-color:var(--accent); }
+
+/* Overall rating summary */
+.rating-summary {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  padding:22px; box-shadow:var(--shadow); margin-bottom:24px;
+  display:grid; grid-template-columns:auto 1fr; gap:24px; align-items:center;
+}
+@media(max-width:600px){ .rating-summary { grid-template-columns:1fr; } }
+.rs-big-score { text-align:center; }
+.rs-num   { font-size:56px; font-weight:800; line-height:1; color:var(--text); }
+.rs-stars { font-size:22px; color:#f59e0b; letter-spacing:2px; margin:4px 0; }
+.rs-count { font-size:12px; color:var(--muted); }
+.rs-bars  { display:flex; flex-direction:column; gap:6px; }
+.rs-bar-row { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
+.rs-bar-label { width:18px; text-align:right; flex-shrink:0; font-weight:600; }
+.rs-bar-track { flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+.rs-bar-fill  { height:100%; background:linear-gradient(90deg,#f59e0b,#fbbf24); border-radius:4px; transition:width 1s ease; }
+.rs-bar-cnt   { width:28px; text-align:left; font-size:11px; }
+
+/* Write review form */
+.write-review-form {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  padding:22px; box-shadow:var(--shadow); margin-bottom:24px;
+  display:none;
+}
+.write-review-form.open { display:block; }
+.star-picker { display:flex; gap:4px; margin-bottom:14px; }
+.star-pick {
+  font-size:28px; cursor:pointer; color:#d4cdc7; transition:color .15s; line-height:1;
+  user-select:none;
+}
+.star-pick.lit { color:#f59e0b; }
+
+/* Sub-metric ratings */
+.sub-metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
+.sub-metric-item { font-size:12px; }
+.sub-metric-label { color:var(--muted); margin-bottom:4px; }
+.sub-metric-stars { display:flex; gap:3px; }
+.sub-star { font-size:18px; cursor:pointer; color:#d4cdc7; transition:color .12s; }
+.sub-star.lit { color:#f59e0b; }
+
+/* Photo upload area */
+.photo-upload-area {
+  border:2px dashed var(--border); border-radius:10px; padding:16px; text-align:center;
+  cursor:pointer; transition:all .2s; margin-bottom:14px; font-size:13px; color:var(--muted);
+}
+.photo-upload-area:hover { border-color:var(--accent); background:var(--red-bg); color:var(--accent); }
+.photo-preview-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.photo-thumb {
+  width:64px; height:52px; border-radius:7px; background:var(--surface2);
+  border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+  font-size:20px; cursor:pointer; position:relative;
+}
+.photo-thumb .remove-photo {
+  position:absolute; top:-5px; right:-5px; background:var(--red); color:#fff;
+  border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; cursor:pointer;
+}
+
+/* Moderation badge */
+.mod-badge { background:var(--red-bg); border:1px solid var(--red-bd); color:var(--red); border-radius:5px; padding:2px 8px; font-size:10px; font-weight:700; margin-left:6px; }
+.flagged-overlay {
+  background:var(--gray-bg); border:1px solid var(--gray-bd); border-radius:8px;
+  padding:10px 14px; font-size:12px; color:var(--muted); text-align:center;
+}
+
+/* ══════════════════════════════════════
+   RECOMMENDATIONS PAGE
+══════════════════════════════════════ */
+.recs-page-wrap { max-width:1200px; margin:0 auto; padding:28px 24px; }
+@media(max-width:900px){ .recs-page-wrap { padding:16px 14px; } }
+
+.recs-hero {
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 40%,#164e63 100%);
+  border-radius:var(--radius); padding:28px 32px; margin-bottom:28px; color:#fff;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+}
+.recs-hero h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
+.recs-hero p  { font-size:13px; color:rgba(255,255,255,.6); }
+.recs-accuracy { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:10px 18px; text-align:center; }
+.recs-accuracy-num { font-size:24px; font-weight:800; }
+.recs-accuracy-lbl { font-size:11px; color:rgba(255,255,255,.6); }
+
+/* Profile section */
+.recs-profile-bar {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  padding:18px 22px; box-shadow:var(--shadow); margin-bottom:24px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.recs-profile-avatar {
+  width:52px; height:52px; border-radius:50%; background:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; font-weight:700; flex-shrink:0;
+}
+.recs-profile-info { flex:1; min-width:160px; }
+.recs-profile-name { font-size:15px; font-weight:700; }
+.recs-profile-type { font-size:12px; color:var(--muted); margin-top:2px; }
+.traveler-type-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.traveler-chip {
+  padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;
+  border:1px solid var(--border); background:var(--surface2); color:var(--muted); transition:all .15s;
+}
+.traveler-chip.active { background:var(--blue-bg); border-color:var(--blue-bd); color:var(--blue); }
+
+/* Recs grid */
+.recs-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+.recs-section-title  { font-size:16px; font-weight:700; }
+.recs-refresh-btn { background:none; border:1px solid var(--border); border-radius:7px; padding:6px 12px; font-size:12px; cursor:pointer; color:var(--muted); font-family:inherit; font-weight:500; transition:all .15s; }
+.recs-refresh-btn:hover { background:var(--surface2); color:var(--text); }
+
+.recs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-bottom:28px; }
+@media(max-width:600px){ .recs-grid { grid-template-columns:1fr; } }
+
+.rec-card {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  overflow:hidden; box-shadow:var(--shadow); transition:all .2s; position:relative;
+}
+.rec-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+.rec-card.dismissed { opacity:.4; pointer-events:none; }
+
+/* Destination visual — CSS art */
+.rec-visual {
+  height:160px; position:relative; overflow:hidden; cursor:pointer;
+}
+/* Why tooltip */
+.why-btn {
+  position:absolute; top:10px; right:10px; background:rgba(0,0,0,.6); color:#fff;
+  border:none; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600;
+  cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:4px; z-index:2;
+  transition:background .2s;
+}
+.why-btn:hover { background:rgba(0,0,0,.8); }
+.why-tooltip {
+  position:absolute; top:38px; right:10px; background:#1c1917; color:#fff;
+  border-radius:10px; padding:12px 14px; font-size:12px; line-height:1.6;
+  width:200px; z-index:10; box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none; transform:translateY(-4px); transition:all .2s;
+}
+.why-tooltip.show { opacity:1; pointer-events:all; transform:translateY(0); }
+.why-tooltip::before { content:''; position:absolute; top:-6px; right:14px; width:12px; height:6px; background:#1c1917; clip-path:polygon(50% 0,100% 100%,0 100%); }
+
+/* Category badge */
+.rec-category { position:absolute; top:10px; left:10px; z-index:2; }
+.rec-cat-badge { padding:3px 9px; border-radius:20px; font-size:10px; font-weight:700; backdrop-filter:blur(4px); }
+.cat-flight  { background:rgba(37,99,235,.85); color:#fff; }
+.cat-hotel   { background:rgba(124,58,237,.85); color:#fff; }
+.cat-dest    { background:rgba(220,38,38,.85); color:#fff; }
+.cat-package { background:rgba(22,163,74,.85); color:#fff; }
+
+.rec-info { padding:14px 16px; }
+.rec-name { font-size:15px; font-weight:700; margin-bottom:3px; }
+.rec-sub  { font-size:12px; color:var(--muted); margin-bottom:10px; }
+.rec-price-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.rec-price { font-size:17px; font-weight:700; color:var(--accent); font-family:'Space Mono',monospace; }
+.rec-price-sub { font-size:10px; color:var(--muted); }
+.rec-match { font-size:11px; color:var(--green); font-weight:600; }
+
+/* Feedback buttons */
+.rec-feedback { display:flex; gap:6px; }
+.rec-fb-btn {
+  flex:1; padding:7px; border-radius:7px; border:1px solid var(--border);
+  font-size:12px; cursor:pointer; font-family:inherit; font-weight:500;
+  background:var(--surface2); color:var(--muted); transition:all .15s; text-align:center;
+}
+.rec-fb-btn.helpful   { }
+.rec-fb-btn.not-relevant { }
+.rec-fb-btn.helpful:hover   { background:var(--green-bg); border-color:var(--green-bd); color:var(--green); }
+.rec-fb-btn.not-relevant:hover { background:var(--red-bg); border-color:var(--red-bd); color:var(--red); }
+.rec-fb-btn.voted-helpful   { background:var(--green-bg); border-color:var(--green-bd); color:var(--green); }
+.rec-fb-btn.voted-no        { background:var(--red-bg); border-color:var(--red-bd); color:var(--red); }
+
+/* Accuracy meter */
+.rec-accuracy-bar { height:3px; background:var(--border); border-radius:2px; margin:8px 0 0; overflow:hidden; }
+.rec-accuracy-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--blue),var(--purple)); }
+
+/* Feedback loop panel */
+.feedback-loop-panel {
+  background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);
+  padding:20px 22px; box-shadow:var(--shadow); margin-bottom:24px;
+}
+.fl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-top:12px; }
+.fl-item {
+  background:var(--surface2); border-radius:9px; padding:12px 14px; border:1px solid var(--border);
+  font-size:12px; cursor:pointer; transition:all .15s;
+}
+.fl-item:hover { border-color:var(--blue-bd); background:var(--blue-bg); }
+.fl-item.selected { background:var(--blue-bg); border-color:var(--blue); color:var(--blue); }
+.fl-item-icon  { font-size:20px; margin-bottom:5px; }
+.fl-item-label { font-weight:600; }
+.fl-item-sub   { color:var(--muted); font-size:11px; margin-top:2px; }
+
+/* Algorithm panel */
+.algo-panel { background:var(--surface2); border-radius:10px; padding:16px 18px; border:1px solid var(--border); margin-top:16px; }
+.algo-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.algo-row:last-child { border-bottom:none; }
+.algo-bar-wrap { width:100px; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.algo-bar { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--blue),var(--purple)); }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Cancel Modal -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Cancel Booking</div>
+      <button class="modal-close" onclick="closeModal('cancelModal')">✕</button>
+    </div>
+    <div id="cancelModalBody"></div>
+  </div>
+</div>
+
+<!-- Price History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="historyModalTitle">Price History</div>
+      <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    </div>
+    <div class="chart-legend">
+      <div class="chart-legend-item"><div class="legend-dot" style="background:#dc2626"></div>Actual Price</div>
+      <div class="chart-legend-item"><div class="legend-dot" style="background:#e8e4dd"></div>Base Price</div>
+    </div>
+    <div style="position:relative;width:100%;height:260px">
+      <canvas id="historyChartModal" role="img" aria-label="Price history chart for selected flight"></canvas>
+    </div>
+    <div id="historyModalMeta" style="margin-top:14px;font-size:13px;color:var(--muted);line-height:1.7"></div>
+  </div>
+</div>
+
+<!-- Freeze Modal -->
+<div class="modal-overlay" id="freezeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔒 Freeze This Price</div>
+      <button class="modal-close" onclick="closeModal('freezeModal')">✕</button>
+    </div>
+    <div id="freezeModalBody"></div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">✈</div>
+    <div class="logo-name">make<span>MyTrip</span></div>
+  </div>
+  <button class="hamburger" id="hamburger" onclick="toggleMobileNav()" aria-label="Menu">☰</button>
+  <div class="header-nav" id="headerNav">
+    <button class="nav-btn active" onclick="showPage('flights')">✈ Tracker</button>
+    <button class="nav-btn" onclick="showPage('pricing')">💰 Pricing</button>
+    <button class="nav-btn" onclick="showPage('history')">📈 History</button>
+    <button class="nav-btn" onclick="showPage('seats')">💺 Seats</button>
+    <button class="nav-btn" onclick="showPage('hotels')">🏨 Hotels</button>
+    <button class="nav-btn" onclick="showPage('reviews')">⭐ Reviews</button>
+    <button class="nav-btn" onclick="showPage('recs')">🎯 For You</button>
+    <button class="nav-btn" onclick="showPage('refunds')">↩ Refunds</button>
+  </div>
+  <div class="ws-status">
+    <div class="ws-dot connecting" id="wsDot"></div>
+    <span id="wsLabel" class="ws-label-text">Live</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 1: Live Flight Tracker
+═══════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-flights">
+  <div class="main-wrap">
+    <div>
+      <div class="track-bar">
+        <input type="text" id="userIdInput" class="user-input input" placeholder="User ID" value="demo_user">
+        <input type="text" id="flightInput" placeholder="Flight e.g. AI302" maxlength="8" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-primary" onclick="trackFlight()">Track</button>
+        <button class="btn btn-outline" onclick="loadAllFlights()">Load All</button>
+      </div>
+      <div class="summary-bar" id="summaryBar"></div>
+      <div class="card-title">Live Flight Status</div>
+      <div id="flightGrid">
+        <div class="empty-state">
+          <div class="empty-icon">✈</div>
+          <div class="empty-title">No flights loaded</div>
+          <div class="empty-sub">Enter a flight number above and click <strong>Track</strong>, or click <strong>Load All</strong> to see every flight.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Quick Track</div>
+        <div class="quick-chips" id="quickChips"></div>
+      </div>
+
+      <!-- Pricing Sidebar Summary -->
+      <div class="card">
+        <div class="card-title">💰 Live Pricing Alerts</div>
+        <div id="pricingAlerts" style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">
+          Price alerts will appear as flights load.
+        </div>
+      </div>
+
+      <!-- Frozen prices sidebar -->
+      <div class="card">
+        <div class="card-title">🔒 Frozen Prices</div>
+        <div id="frozenPricesSidebar" style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">
+          No prices frozen yet.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Live Notifications</div>
+        <div class="notif-list" id="notifList">
+          <div class="notif-empty">Notifications will appear here once connected.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 2: Dynamic Pricing Engine
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-pricing">
+  <div class="page-full">
+    <div class="pricing-banner">
+      <div class="pb-left">
+        <h2>Dynamic Pricing Engine</h2>
+        <p>Prices auto-adjust in real time based on demand, seasonality, and travel patterns.</p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="pb-badge">🔴 Peak Season Active</div>
+        <div class="pb-badge">Updates every 60s</div>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="pricingStats">
+      <div class="stat-card">
+        <div class="stat-label">Avg Surge</div>
+        <div class="stat-value stat-up">+24%</div>
+        <div class="stat-sub">vs base price</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Peak Routes</div>
+        <div class="stat-value">5</div>
+        <div class="stat-sub">of 10 monitored</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Price Drops</div>
+        <div class="stat-value stat-down">3</div>
+        <div class="stat-sub">opportunities today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Prices Frozen</div>
+        <div class="stat-value"id="frozenCount">0</div>
+        <div class="stat-sub">by users</div>
+      </div>
+    </div>
+
+    <div class="section-divider"><h2>Route Pricing</h2></div>
+    <div class="pricing-grid" id="pricingGrid"></div>
+
+    <div class="section-divider"><h2>Pricing Rules & Transparency</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+      <div class="card">
+        <div class="card-title">Holiday Surge</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">During public holidays and festival seasons, prices increase by up to <strong>20%</strong> automatically. Currently active: Diwali, Christmas, New Year window.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Demand-Based Pricing</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">When seat availability drops below <strong>30%</strong>, prices rise dynamically. Below 10% availability triggers maximum pricing tier.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Off-Peak Discounts</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">Flights departing between <strong>02:00–06:00</strong> or on weekday middays receive automatic discounts of 10–15%.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Price Guarantee</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">Once you book, your price is locked. Use Price Freeze to hold a fare for up to <strong>24 hours</strong> before committing to purchase.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 3: Price History
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="page-full">
+    <div class="section-divider"><h2>Price History & Trends</h2></div>
+
+    <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center">
+      <select class="select" style="width:220px" id="historyRouteSelect" onchange="renderHistoryPage()">
+        <option value="DEL-BOM">Delhi → Mumbai</option>
+        <option value="BOM-BLR">Mumbai → Bengaluru</option>
+        <option value="DEL-BLR">Delhi → Bengaluru</option>
+        <option value="BLR-HYD">Bengaluru → Hyderabad</option>
+        <option value="COK-DEL">Kochi → Delhi</option>
+      </select>
+      <select class="select" style="width:160px" id="historyPeriod" onchange="renderHistoryPage()">
+        <option value="7">Last 7 days</option>
+        <option value="14">Last 14 days</option>
+        <option value="30" selected>Last 30 days</option>
+      </select>
+    </div>
+
+    <div class="stat-grid" id="historyStats"></div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#dc2626"></div>Actual Price</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#94a3b8;border-style:dashed;height:2px;width:10px;border-radius:0"></div>Base Price</div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:#7c3aed"></div>Frozen Price Events</div>
+      </div>
+      <div style="position:relative;width:100%;height:320px">
+        <canvas id="historyPageChart" role="img" aria-label="Price history trend chart showing price fluctuations over the selected time period">Price history data for selected route.</canvas>
+      </div>
+    </div>
+
+    <div class="section-divider"><h2>Price Events</h2></div>
+    <div id="priceEvents" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 4: Bookings & Refunds
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-refunds">
+  <div class="page-full">
+    <div class="section-divider"><h2>My Bookings & Cancellations</h2></div>
+
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-label">Total Bookings</div>
+        <div class="stat-value" id="totalBookings">5</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active</div>
+        <div class="stat-value stat-down" id="activeBookings">3</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Refunds Pending</div>
+        <div class="stat-value stat-up" id="pendingRefunds">1</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Refunded</div>
+        <div class="stat-value" id="totalRefunded">₹4,250</div>
+      </div>
+    </div>
+
+    <!-- Refund tracker -->
+    <div class="refund-tracker" id="refundTracker">
+      <div class="card-title">Refund Status Tracker</div>
+      <div id="refundTrackerContent"></div>
+    </div>
+
+    <div class="section-divider"><h2>All Bookings</h2></div>
+    <div class="booking-list" id="bookingList"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 5: Seat Selection
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-seats">
+  <div class="seat-page-wrap">
+
+    <!-- LEFT: Aircraft + seat map -->
+    <div>
+      <!-- Flight selector -->
+      <div style="margin-bottom:18px">
+        <div class="card-title" style="margin-bottom:10px">Select Flight</div>
+        <div class="flight-tabs" id="flightTabs"></div>
+      </div>
+
+      <!-- Live availability ticker -->
+      <div class="seat-ticker" id="seatTicker" style="margin-bottom:14px">
+        🔴 <span id="tickerText">12 seats remaining on AI302 · 3 people viewing now</span>
+      </div>
+
+      <!-- Aircraft fuselage -->
+      <div class="aircraft-fuselage">
+        <div class="fuselage-nose">
+          <div>
+            <h3 id="seatMapFlightTitle">AI302 — Delhi → Mumbai</h3>
+            <span id="seatMapAircraft">Boeing 737-800 · 189 seats</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="seatsLeft" style="font-size:12px;color:rgba(255,255,255,.6)">138 available</span>
+            <button class="btn btn-primary btn-sm" onclick="randomizeOccupied()">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <!-- Column headers -->
+        <div class="cabin-body">
+          <div class="seat-row-header" style="margin-bottom:2px">
+            <div style="width:28px"></div>
+            <div class="seat-group" style="gap:5px">
+              <div class="col-label" style="width:38px">A</div>
+              <div class="col-label" style="width:38px">B</div>
+              <div class="col-label" style="width:38px">C</div>
+            </div>
+            <div style="width:28px"></div>
+            <div class="seat-group" style="gap:5px">
+              <div class="col-label" style="width:38px">D</div>
+              <div class="col-label" style="width:38px">E</div>
+              <div class="col-label" style="width:38px">F</div>
+            </div>
+          </div>
+          <div class="cabin-aisle" id="seatMapGrid"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="seat-legend">
+          <div class="legend-item"><div class="legend-swatch ls-business"></div>Business (+₹3,500)</div>
+          <div class="legend-item"><div class="legend-swatch ls-premium"></div>Premium Economy (+₹1,200)</div>
+          <div class="legend-item"><div class="legend-swatch ls-avail"></div>Economy</div>
+          <div class="legend-item"><div class="legend-swatch ls-occupied"></div>Occupied</div>
+          <div class="legend-item"><div class="legend-swatch ls-selected"></div>Your Selection</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Seat summary + preferences -->
+    <div class="seat-sidebar">
+
+      <!-- Selected seat card -->
+      <div class="seat-summary-card">
+        <div class="card-title">Your Selection</div>
+        <div id="noSeatSelected" style="text-align:center;padding:24px 0;color:var(--muted);font-size:13px">
+          <div style="font-size:32px;margin-bottom:8px">💺</div>
+          Click any available seat on the map to select it.
+        </div>
+        <div id="seatSelectedPanel" style="display:none">
+          <div class="selected-seat-display" id="selectedSeatDisplay">
+            <div class="selected-seat-num" id="selectedSeatNum">—</div>
+            <div class="selected-seat-type" id="selectedSeatType">—</div>
+          </div>
+          <div class="seat-detail-row"><span>Class</span><span id="sd-class" style="font-weight:600">—</span></div>
+          <div class="seat-detail-row"><span>Position</span><span id="sd-pos" style="font-weight:600">—</span></div>
+          <div class="seat-detail-row"><span>Features</span><span id="sd-feat" style="font-weight:600;font-size:12px;text-align:right;max-width:140px">—</span></div>
+          <div class="seat-detail-row"><span>Base fare</span><span id="sd-base" style="font-weight:600">—</span></div>
+          <div class="seat-detail-row" style="border:none"><span style="font-weight:700">Total</span><span id="sd-total" style="font-weight:800;color:var(--accent);font-size:16px">—</span></div>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn btn-primary" style="flex:1" onclick="confirmSeat()">Confirm Seat</button>
+            <button class="btn btn-outline" onclick="clearSeat()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seat preferences -->
+      <div class="seat-summary-card">
+        <div class="card-title">Seat Preferences</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Save your preferences for faster future bookings.</div>
+        <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Position</div>
+        <div>
+          <span class="pref-chip" data-pref="window" onclick="togglePref(this)">🪟 Window</span>
+          <span class="pref-chip" data-pref="aisle" onclick="togglePref(this)">🚶 Aisle</span>
+          <span class="pref-chip" data-pref="middle" onclick="togglePref(this)">📍 Middle</span>
+        </div>
+        <div style="margin:10px 0 8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Class</div>
+        <div>
+          <span class="pref-chip" data-pref="economy" onclick="togglePref(this)">Economy</span>
+          <span class="pref-chip" data-pref="premium" onclick="togglePref(this)">⭐ Premium</span>
+          <span class="pref-chip" data-pref="business" onclick="togglePref(this)">💼 Business</span>
+        </div>
+        <div style="margin:10px 0 8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Extras</div>
+        <div>
+          <span class="pref-chip" data-pref="extra-legroom" onclick="togglePref(this)">🦵 Extra Legroom</span>
+          <span class="pref-chip" data-pref="front-rows" onclick="togglePref(this)">⚡ Front Rows</span>
+          <span class="pref-chip" data-pref="quiet-zone" onclick="togglePref(this)">🤫 Quiet Zone</span>
+        </div>
+        <button class="btn btn-green" style="width:100%;margin-top:14px" onclick="savePreferences()">💾 Save Preferences</button>
+        <div class="seat-prefs-saved" id="prefsSaved">✅ Preferences saved! Applied to future bookings.</div>
+      </div>
+
+      <!-- Saved preferences display -->
+      <div class="saved-prefs-panel" id="savedPrefsPanel" style="display:none">
+        <div class="card-title">Saved Preferences</div>
+        <div class="pref-profile">
+          <div class="pref-avatar">U</div>
+          <div>
+            <div style="font-size:13px;font-weight:700">demo_user</div>
+            <div style="font-size:11px;color:var(--muted)">Auto-applied on selection</div>
+          </div>
+        </div>
+        <div id="savedPrefsChips"></div>
+      </div>
+
+      <!-- Upsell card -->
+      <div class="card" style="border:2px solid var(--purple-bd);background:var(--purple-bg)">
+        <div class="card-title" style="color:var(--purple)">✨ Upgrade Available</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          Upgrade to <strong>Business Class</strong> for just <strong>₹3,500 more</strong> and enjoy lie-flat seats, priority boarding, and gourmet meals.
+        </div>
+        <button class="btn btn-purple" style="width:100%" onclick="selectBusinessClass()">View Business Seats →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 6: Hotel Room Selection
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-hotels">
+  <div class="hotel-page-wrap">
+
+    <div class="hotel-header-band">
+      <div class="pb-left">
+        <h2>🏨 Hotel Room Selection</h2>
+        <p>Choose your perfect room — real-time availability · 3D previews · instant booking</p>
+      </div>
+      <div class="hotel-filters">
+        <button class="hotel-filter-btn active" onclick="filterHotels('all',this)">All Hotels</button>
+        <button class="hotel-filter-btn" onclick="filterHotels('luxury',this)">⭐ Luxury</button>
+        <button class="hotel-filter-btn" onclick="filterHotels('business',this)">💼 Business</button>
+        <button class="hotel-filter-btn" onclick="filterHotels('budget',this)">💰 Budget</button>
+      </div>
+    </div>
+
+    <div class="hotel-layout">
+      <!-- Hotel list sidebar -->
+      <div>
+        <div class="card-title" style="margin-bottom:12px">Available Hotels</div>
+        <div class="hotel-list" id="hotelList"></div>
+      </div>
+
+      <!-- Right panel: rooms + booking -->
+      <div class="hotel-right">
+        <div class="hotel-name-bar" id="hotelNameBar">
+          <div>
+            <h3 id="selectedHotelName">Select a hotel to view rooms</h3>
+            <p id="selectedHotelMeta">Choose from the list on the left</p>
+          </div>
+          <div id="hotelAvailTicker" style="display:none" class="availability-ticker">
+            🔴 <span id="hotelTickerText">Only 3 rooms left!</span>
+          </div>
+        </div>
+
+        <!-- Room grid -->
+        <div id="roomGrid" class="room-grid"></div>
+
+        <!-- Selected room booking panel -->
+        <div class="room-booking-panel" id="roomBookingPanel" style="display:none">
+          <div class="card-title">Your Room Selection</div>
+          <div class="selected-room-visual" id="selectedRoomVisual"></div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="bookedRoomName">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px" id="bookedRoomDesc">—</div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Room Preferences (saved for future)</div>
+          <div class="room-pref-tags">
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🛏 King Bed</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🏙 City View</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🌊 Pool View</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🔇 Quiet Floor</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🍳 Breakfast Incl.</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">♿ Accessible</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🐾 Pet Friendly</span>
+            <span class="pref-tag" onclick="toggleRoomPref(this)">🚭 Non-smoking</span>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:10px;padding:14px;margin:12px 0">
+            <div>
+              <div style="font-size:11px;color:var(--muted)">Total (2 nights)</div>
+              <div style="font-size:22px;font-weight:800;color:var(--blue);font-family:'Space Mono',monospace" id="bookedRoomTotal">—</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px;color:var(--muted)">per night</div>
+              <div style="font-size:16px;font-weight:700" id="bookedRoomNightly">—</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" style="flex:1" onclick="confirmRoom()">Book This Room</button>
+            <button class="btn btn-green btn-sm" onclick="saveRoomPrefs()">💾 Save Prefs</button>
+            <button class="btn btn-outline" onclick="clearRoomSelection()">Clear</button>
+          </div>
+          <div id="roomPrefsSaved" style="display:none;margin-top:10px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:8px;padding:10px;font-size:12px;color:var(--green)">
+            ✅ Room preferences saved for future bookings!
+          </div>
+        </div>
+
+        <!-- Saved hotel prefs -->
+        <div class="saved-prefs-panel" id="savedHotelPrefsPanel" style="display:none">
+          <div class="card-title">Your Saved Hotel Preferences</div>
+          <div class="pref-profile">
+            <div class="pref-avatar">U</div>
+            <div>
+              <div style="font-size:13px;font-weight:700">demo_user</div>
+              <div style="font-size:11px;color:var(--muted)">Preferences auto-applied</div>
+            </div>
+          </div>
+          <div id="savedHotelPrefChips"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="roomEmptyState" style="text-align:center;padding:60px 20px;color:var(--muted)">
+          <div style="font-size:48px;margin-bottom:14px">🏨</div>
+          <div style="font-size:17px;font-weight:600;margin-bottom:6px;color:var(--text)">Pick a Hotel</div>
+          <div style="font-size:13px">Select a hotel from the left to browse available rooms with 3D previews and live pricing.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 7: Reviews & Ratings
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-reviews">
+  <div class="reviews-page-wrap">
+
+    <!-- Hero -->
+    <div class="reviews-hero">
+      <div>
+        <h2>⭐ Reviews & Ratings</h2>
+        <p>Real experiences from real travellers — rate, review, and help others decide.</p>
+      </div>
+      <button class="write-review-btn" onclick="toggleWriteReview()">✏️ Write a Review</button>
+    </div>
+
+    <!-- Write review form -->
+    <div class="write-review-form" id="writeReviewForm">
+      <div class="card-title">Share Your Experience</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+          <label class="form-label">Reviewing</label>
+          <select class="select" id="reviewSubjectType" onchange="updateReviewSubjects()">
+            <option value="hotel">🏨 Hotel</option>
+            <option value="flight">✈️ Flight</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Select Specific</label>
+          <select class="select" id="reviewSubjectName"></select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="form-label">Overall Rating</label>
+        <div class="star-picker" id="starPicker">
+          <span class="star-pick" onclick="setReviewStar(1)">★</span>
+          <span class="star-pick" onclick="setReviewStar(2)">★</span>
+          <span class="star-pick" onclick="setReviewStar(3)">★</span>
+          <span class="star-pick" onclick="setReviewStar(4)">★</span>
+          <span class="star-pick" onclick="setReviewStar(5)">★</span>
+        </div>
+        <div id="starLabel" style="font-size:12px;color:var(--muted)">Click to rate</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="form-label">Rate Specific Aspects</label>
+        <div class="sub-metrics-grid" id="subMetricsGrid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Review Title</label>
+        <input class="input" id="reviewTitle" placeholder="Summarise your experience in a few words…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your Review</label>
+        <textarea class="input" id="reviewBody" rows="4" placeholder="Describe your experience in detail. What did you love? What could be better?" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Add Photos</label>
+        <div class="photo-upload-area" onclick="addDemoPhoto()">
+          📷 Click to upload photos &nbsp;·&nbsp; <span style="font-size:11px">JPG, PNG up to 5MB each</span>
+        </div>
+        <div class="photo-preview-row" id="photoPreviewRow"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" style="flex:1" onclick="submitReview()">Submit Review</button>
+        <button class="btn btn-outline" onclick="toggleWriteReview()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Subject tabs -->
+    <div class="review-tabs" id="reviewTabs">
+      <button class="review-tab active" onclick="filterReviews('all',this)">All Reviews</button>
+      <button class="review-tab" onclick="filterReviews('hotel',this)">🏨 Hotels</button>
+      <button class="review-tab" onclick="filterReviews('flight',this)">✈️ Flights</button>
+    </div>
+
+    <!-- Rating summary -->
+    <div class="rating-summary" id="ratingSummary"></div>
+
+    <!-- Controls -->
+    <div class="review-controls">
+      <input class="review-search" id="reviewSearch" placeholder="🔍 Search reviews…" oninput="applyReviewFilters()">
+      <select class="review-sort" id="reviewSort" onchange="applyReviewFilters()">
+        <option value="newest">Newest First</option>
+        <option value="helpful">Most Helpful</option>
+        <option value="highest">Highest Rated</option>
+        <option value="lowest">Lowest Rated</option>
+      </select>
+      <div class="star-filter" id="starFilterBar"></div>
+    </div>
+
+    <!-- Reviews list -->
+    <div class="reviews-list" id="reviewsList"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 8: Personalised Recommendations
+═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-recs">
+  <div class="recs-page-wrap">
+
+    <!-- Hero -->
+    <div class="recs-hero">
+      <div>
+        <h2>🎯 Personalised For You</h2>
+        <p>Recommendations powered by your travel history, preferences, and collaborative filtering.</p>
+      </div>
+      <div class="recs-accuracy">
+        <div class="recs-accuracy-num" id="recsAccuracyNum">87%</div>
+        <div class="recs-accuracy-lbl">Match Accuracy</div>
+      </div>
+    </div>
+
+    <!-- Profile bar -->
+    <div class="recs-profile-bar">
+      <div class="recs-profile-avatar">U</div>
+      <div class="recs-profile-info">
+        <div class="recs-profile-name">demo_user</div>
+        <div class="recs-profile-type">Traveller Profile: <strong id="travelerTypeLabel">Beach Explorer</strong></div>
+        <div class="traveler-type-chips" id="travelerChips">
+          <span class="traveler-chip active" onclick="setTravelerType('beach',this)">🏖 Beach</span>
+          <span class="traveler-chip" onclick="setTravelerType('mountain',this)">⛰ Mountain</span>
+          <span class="traveler-chip" onclick="setTravelerType('city',this)">🏙 City</span>
+          <span class="traveler-chip" onclick="setTravelerType('culture',this)">🏛 Culture</span>
+          <span class="traveler-chip" onclick="setTravelerType('adventure',this)">🧗 Adventure</span>
+          <span class="traveler-chip" onclick="setTravelerType('luxury',this)">💎 Luxury</span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Based on your history</div>
+        <div style="font-size:13px;font-weight:600" id="historySnippet">12 trips · Goa, Maldives, Kerala…</div>
+      </div>
+    </div>
+
+    <!-- Feedback loop panel -->
+    <div class="feedback-loop-panel">
+      <div class="card-title">🔁 Refine Your Recommendations</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Tell us what you're interested in to improve future suggestions.</div>
+      <div class="fl-grid" id="feedbackLoopGrid"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="applyFeedbackLoop()">Update My Profile</button>
+        <div style="font-size:12px;color:var(--muted)">Collaborative filtering · Content-based · Hybrid model</div>
+      </div>
+    </div>
+
+    <!-- Algorithm transparency -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-title">🧠 How Our Algorithm Works</div>
+      <div class="algo-panel" id="algoPanel"></div>
+    </div>
+
+    <!-- Destination recommendations -->
+    <div class="recs-section-header">
+      <div class="recs-section-title">🌏 Destinations You'll Love</div>
+      <button class="recs-refresh-btn" onclick="refreshRecs()">🔄 Refresh</button>
+    </div>
+    <div class="recs-grid" id="destRecsGrid"></div>
+
+    <!-- Flight recommendations -->
+    <div class="recs-section-header">
+      <div class="recs-section-title">✈️ Recommended Flights</div>
+    </div>
+    <div class="recs-grid" id="flightRecsGrid"></div>
+
+    <!-- Hotel recommendations -->
+    <div class="recs-section-header">
+      <div class="recs-section-title">🏨 Hotels You'll Love</div>
+    </div>
+    <div class="recs-grid" id="hotelRecsGrid"></div>
+
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   CONFIG
+───────────────────────────────────────────── */
+const API_BASE = '/api/flights';
+const WS_URL   = '/ws';
+const KNOWN_FLIGHTS = ['AI302','6E456','SG101','UK820','GO251','AI131'];
+const MAX_NOTIF = 30;
+const MAX_TOAST = 4;
+
+let stompClient   = null;
+let subscriptions = {};
+let displayedCards= {};
+let countdownTimers={};
+let notifCount    = 0;
+let historyChart  = null;
+let historyModalChart = null;
+
+/* ─────────────────────────────────────────────
+   PRICING ENGINE DATA
+───────────────────────────────────────────── */
+const PRICING_ROUTES = [
+  { route: 'DEL→BOM', base: 4500, demand: 92, season: 'peak',    factors: ['Holiday surge +20%', 'High demand +18%', 'Weekend +8%'] },
+  { route: 'BOM→BLR', base: 3200, demand: 55, season: 'normal',  factors: ['Normal demand', 'Weekday discount -5%'] },
+  { route: 'DEL→BLR', base: 5200, demand: 78, season: 'peak',    factors: ['Festival season +15%', 'Moderate demand +10%'] },
+  { route: 'BLR→HYD', base: 2100, demand: 31, season: 'offpeak', factors: ['Early morning -10%', 'Low demand -8%'] },
+  { route: 'COK→DEL', base: 4800, demand: 88, season: 'peak',    factors: ['Holiday surge +20%', 'High demand +15%'] },
+  { route: 'CCU→BOM', base: 3900, demand: 44, season: 'normal',  factors: ['Weekday -3%', 'Normal season'] },
+];
+
+function calcPrice(route) {
+  const { base, demand, season } = route;
+  let multiplier = 1.0;
+  if (season === 'peak')    multiplier *= 1.20;
+  if (season === 'offpeak') multiplier *= 0.88;
+  const demandMult = demand > 80 ? 1.18 : demand > 60 ? 1.05 : demand < 40 ? 0.92 : 1.0;
+  multiplier *= demandMult;
+  return { price: Math.round(base * multiplier), multiplier };
+}
+
+/* Price history simulation */
+function generatePriceHistory(basePrice, days) {
+  const history = [];
+  const today   = new Date();
+  let   price   = basePrice;
+  for (let i = days; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const variance = (Math.random() - 0.45) * 0.08;
+    price = Math.max(basePrice * 0.80, Math.min(basePrice * 1.35, price * (1 + variance)));
+    // Add holiday spikes
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek === 5 || dayOfWeek === 6) price *= 1.06;
+    history.push({ date: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }), price: Math.round(price) });
+  }
+  return history;
+}
+
+/* ─────────────────────────────────────────────
+   BOOKINGS DATA
+───────────────────────────────────────────── */
+const BOOKINGS = [
+  { id: 'MMT2024A', flight: 'AI302', route: 'DEL→BOM', date: '2026-05-15', amount: 5400, status: 'active',    pax: 1, refundStatus: null },
+  { id: 'MMT2024B', flight: '6E456', route: 'BOM→BLR', date: '2026-04-28', amount: 3200, status: 'active',    pax: 2, refundStatus: null },
+  { id: 'MMT2024C', flight: 'SG101', route: 'DEL→BLR', date: '2026-04-10', amount: 5800, status: 'cancelled', pax: 1, refundStatus: 'completed', refundAmount: 2900, refundDate: '2026-04-12', cancelReason: 'Change of plans' },
+  { id: 'MMT2024D', flight: 'UK820', route: 'BLR→HYD', date: '2026-05-02', amount: 2100, status: 'cancelled', pax: 1, refundStatus: 'pending',   refundAmount: 1050, cancelReason: 'Medical emergency', cancelledAt: new Date(Date.now() - 20*3600*1000) },
+  { id: 'MMT2024E', flight: 'GO251', route: 'COK→DEL', date: '2026-06-01', amount: 4800, status: 'active',    pax: 1, refundStatus: null },
+];
+
+/* Frozen prices store */
+const frozenPrices = [];
+
+/* ─────────────────────────────────────────────
+   PAGE NAVIGATION
+───────────────────────────────────────────── */
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const idx = { flights:0, pricing:1, history:2, seats:3, hotels:4, reviews:5, recs:6, refunds:7 }[page];
+  if (idx !== undefined) document.querySelectorAll('.nav-btn')[idx]?.classList.add('active');
+  // Close mobile nav
+  document.getElementById('headerNav').classList.remove('open');
+
+  if (page === 'pricing')  renderPricingPage();
+  if (page === 'history')  renderHistoryPage();
+  if (page === 'refunds')  renderRefundsPage();
+  if (page === 'seats')    initSeatPage();
+  if (page === 'hotels')   initHotelPage();
+  if (page === 'reviews')  initReviewsPage();
+  if (page === 'recs')     initRecsPage();
+}
+
+function toggleMobileNav() {
+  document.getElementById('headerNav').classList.toggle('open');
+}
+
+/* ══════════════════════════════════════════════════════
+   SEAT MAP ENGINE
+══════════════════════════════════════════════════════ */
+
+const SEAT_FLIGHTS = [
+  { id:'AI302', label:'AI302', route:'Delhi → Mumbai',   aircraft:'Boeing 737-800', rows:30, baseFare:4500 },
+  { id:'6E456', label:'6E456', route:'Mumbai → Bengaluru', aircraft:'Airbus A320',  rows:28, baseFare:3200 },
+  { id:'SG101', label:'SG101', route:'Delhi → Bengaluru', aircraft:'Boeing 737-700', rows:26, baseFare:5200 },
+  { id:'UK820', label:'UK820', route:'Bengaluru → Hyderabad', aircraft:'ATR 72-600', rows:18, baseFare:2100 },
+];
+
+// Seat state per flight: { 'AI302': { '3A': 'occupied', '5C': 'selected', ... } }
+const seatState   = {};
+let   activeFlight= 'AI302';
+let   selectedSeat= null;
+const savedSeatPrefs = [];
+
+function getSeatClass(row, col, rows) {
+  if (row <= 2)  return 'business';
+  if (row <= 6)  return 'premium';
+  return 'economy';
+}
+function getSeatPosition(col) {
+  return col === 'A' || col === 'F' ? 'Window' : col === 'B' || col === 'E' ? 'Middle' : 'Aisle';
+}
+function getSeatFeatures(row, col, sClass, rows) {
+  const feats = [];
+  if (sClass === 'business')  feats.push('Lie-flat', 'Priority boarding', 'Lounge access');
+  else if (sClass === 'premium') feats.push('Extra legroom', 'Priority disembark');
+  else {
+    if (row === 7 || row === rows-5) feats.push('Extra legroom');
+    if (col === 'A' || col === 'F')  feats.push('Window view');
+    if (col === 'C' || col === 'D')  feats.push('Quick aisle access');
+  }
+  return feats.length ? feats.join(', ') : 'Standard';
+}
+function getSeatUpcharge(sClass) {
+  return sClass === 'business' ? 3500 : sClass === 'premium' ? 1200 : 0;
+}
+
+function initSeatState(flightId) {
+  if (seatState[flightId]) return;
+  const flight = SEAT_FLIGHTS.find(f => f.id === flightId);
+  const state  = {};
+  const cols   = ['A','B','C','D','E','F'];
+  for (let r = 1; r <= flight.rows; r++) {
+    cols.forEach(c => {
+      // ~35% occupied randomly, seeded by row+col for consistency
+      const hash = (r * 7 + c.charCodeAt(0) * 13) % 100;
+      if (hash < 32) state[r+c] = 'occupied';
+    });
+  }
+  seatState[flightId] = state;
+}
+
+function initSeatPage() {
+  // Build flight tabs
+  const tabs = document.getElementById('flightTabs');
+  tabs.innerHTML = SEAT_FLIGHTS.map(f =>
+    `<button class="flight-tab ${f.id===activeFlight?'active':''}" onclick="switchFlight('${f.id}')">${f.label}</button>`
+  ).join('');
+  renderSeatMap(activeFlight);
+  startSeatTicker();
+}
+
+function switchFlight(flightId) {
+  activeFlight = flightId;
+  selectedSeat = null;
+  document.querySelectorAll('.flight-tab').forEach((t,i) => t.classList.toggle('active', SEAT_FLIGHTS[i].id === flightId));
+  showSeatPanel(false);
+  renderSeatMap(flightId);
+}
+
+function renderSeatMap(flightId) {
+  initSeatState(flightId);
+  const flight = SEAT_FLIGHTS.find(f => f.id === flightId);
+  const state  = seatState[flightId];
+  const cols   = ['A','B','C','D','E','F'];
+  const grid   = document.getElementById('seatMapGrid');
+
+  document.getElementById('seatMapFlightTitle').textContent = `${flight.id} — ${flight.route}`;
+  document.getElementById('seatMapAircraft').textContent    = `${flight.aircraft} · ${flight.rows * 6} seats`;
+
+  let html = '';
+  let prevClass = null;
+
+  for (let r = 1; r <= flight.rows; r++) {
+    const rowClass = getSeatClass(r, 'A', flight.rows);
+
+    // Section divider labels
+    if (rowClass !== prevClass) {
+      const labels = { business:'💼 Business Class', premium:'⭐ Premium Economy', economy:'Economy Class' };
+      html += `<div class="cabin-section-label">${labels[rowClass]}</div>`;
+      prevClass = rowClass;
+    }
+
+    // Exit row indicator
+    const isExit = (r === 7 || r === flight.rows - 4);
+    const exitAttr = isExit ? ' seat-exit' : '';
+
+    html += `<div class="seat-row">`;
+    html += `<div class="row-num">${r}</div>`;
+    // Left group A B C
+    html += `<div class="seat-group">`;
+    ['A','B','C'].forEach(col => {
+      const key    = r + col;
+      const st     = state[key] || 'available';
+      const sc     = getSeatClass(r, col, flight.rows);
+      const isSel  = (selectedSeat?.key === key && activeFlight === flightId);
+      const cls    = isSel ? `seat seat-${sc} seat-selected${exitAttr}` : `seat seat-${sc} ${st === 'occupied' ? 'seat-occupied' : ''}${exitAttr}`;
+      const dis    = st === 'occupied' ? 'disabled' : '';
+      html += `<button class="${cls}" id="seat-${flightId}-${key}" onclick="selectSeat('${flightId}','${key}','${col}',${r},'${sc}')" ${dis} title="${key} · ${getSeatPosition(col)} · ${sc}">${col}</button>`;
+    });
+    html += `</div>`;
+    // Aisle
+    html += `<div class="aisle-gap">│</div>`;
+    // Right group D E F
+    html += `<div class="seat-group">`;
+    ['D','E','F'].forEach(col => {
+      const key    = r + col;
+      const st     = state[key] || 'available';
+      const sc     = getSeatClass(r, col, flight.rows);
+      const isSel  = (selectedSeat?.key === key && activeFlight === flightId);
+      const cls    = isSel ? `seat seat-${sc} seat-selected${exitAttr}` : `seat seat-${sc} ${st === 'occupied' ? 'seat-occupied' : ''}${exitAttr}`;
+      const dis    = st === 'occupied' ? 'disabled' : '';
+      html += `<button class="${cls}" id="seat-${flightId}-${key}" onclick="selectSeat('${flightId}','${key}','${col}',${r},'${sc}')" ${dis} title="${key} · ${getSeatPosition(col)} · ${sc}">${col}</button>`;
+    });
+    html += `</div>`;
+    html += `</div>`;
+  }
+
+  grid.innerHTML = html;
+  updateSeatsLeft(flightId);
+}
+
+function selectSeat(flightId, key, col, row, sClass) {
+  if (flightId !== activeFlight) return;
+  const st = seatState[flightId][key];
+  if (st === 'occupied') return;
+
+  // Deselect previous
+  if (selectedSeat && selectedSeat.flightId === flightId) {
+    const prev = document.getElementById(`seat-${flightId}-${selectedSeat.key}`);
+    if (prev) {
+      const pClass = getSeatClass(selectedSeat.row, selectedSeat.col, SEAT_FLIGHTS.find(f=>f.id===flightId).rows);
+      prev.className = `seat seat-${pClass}`;
+    }
+  }
+
+  selectedSeat = { flightId, key, col, row, sClass };
+
+  // Highlight new
+  const el = document.getElementById(`seat-${flightId}-${key}`);
+  if (el) el.className = `seat seat-${sClass} seat-selected`;
+
+  // Update sidebar
+  const flight   = SEAT_FLIGHTS.find(f => f.id === flightId);
+  const upcharge = getSeatUpcharge(sClass);
+  const total    = flight.baseFare + upcharge;
+  const pos      = getSeatPosition(col);
+  const feats    = getSeatFeatures(row, col, sClass, flight.rows);
+  const classLabel = { business:'Business Class', premium:'Premium Economy', economy:'Economy' }[sClass];
+  const bgColor  = { business:'var(--purple)', premium:'var(--amber)', economy:'var(--accent)' }[sClass];
+
+  document.getElementById('selectedSeatNum').textContent  = key;
+  document.getElementById('selectedSeatType').textContent = classLabel + ' · Row ' + row;
+  document.getElementById('selectedSeatDisplay').style.background = bgColor;
+  document.getElementById('sd-class').textContent = classLabel;
+  document.getElementById('sd-pos').textContent   = pos + ' seat';
+  document.getElementById('sd-feat').textContent  = feats;
+  document.getElementById('sd-base').textContent  = `₹${flight.baseFare.toLocaleString('en-IN')}` + (upcharge ? ` + ₹${upcharge.toLocaleString('en-IN')}` : '');
+  document.getElementById('sd-total').textContent = `₹${total.toLocaleString('en-IN')}`;
+  showSeatPanel(true);
+}
+
+function showSeatPanel(show) {
+  document.getElementById('noSeatSelected').style.display  = show ? 'none' : 'block';
+  document.getElementById('seatSelectedPanel').style.display = show ? 'block' : 'none';
+}
+
+function clearSeat() {
+  if (!selectedSeat) return;
+  const el = document.getElementById(`seat-${selectedSeat.flightId}-${selectedSeat.key}`);
+  if (el) el.className = `seat seat-${selectedSeat.sClass}`;
+  selectedSeat = null;
+  showSeatPanel(false);
+}
+
+function confirmSeat() {
+  if (!selectedSeat) return;
+  showToastRaw('ok', `Seat ${selectedSeat.key} Confirmed`, `${selectedSeat.sClass === 'business' ? 'Business Class' : selectedSeat.sClass === 'premium' ? 'Premium Economy' : 'Economy'} seat confirmed on ${selectedSeat.flightId}. Proceed to payment.`);
+  seatState[selectedSeat.flightId][selectedSeat.key] = 'occupied';
+  clearSeat();
+  updateSeatsLeft(activeFlight);
+}
+
+function selectBusinessClass() {
+  // Scroll to first business seat and highlight
+  const el = document.getElementById(`seat-${activeFlight}-1A`);
+  if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); el.classList.add('seat-just-taken'); setTimeout(() => el.classList.remove('seat-just-taken'), 600); }
+}
+
+function togglePref(chip) {
+  chip.classList.toggle('active');
+}
+
+function savePreferences() {
+  const active = [...document.querySelectorAll('.pref-chip.active')].map(c => c.dataset.pref);
+  if (!active.length) { showToastRaw('info','No preferences','Select at least one preference to save.'); return; }
+  savedSeatPrefs.length = 0;
+  active.forEach(p => savedSeatPrefs.push(p));
+
+  const panel = document.getElementById('savedPrefsPanel');
+  panel.style.display = 'block';
+  const labelMap = { window:'🪟 Window', aisle:'🚶 Aisle', middle:'📍 Middle', economy:'Economy', premium:'⭐ Premium', business:'💼 Business', 'extra-legroom':'🦵 Extra Legroom', 'front-rows':'⚡ Front Rows', 'quiet-zone':'🤫 Quiet Zone' };
+  document.getElementById('savedPrefsChips').innerHTML = savedSeatPrefs.map(p =>
+    `<span class="saved-pref-chip">${labelMap[p] || p}</span>`
+  ).join('');
+
+  document.getElementById('prefsSaved').classList.add('show');
+  setTimeout(() => document.getElementById('prefsSaved').classList.remove('show'), 3000);
+  showToastRaw('ok','Preferences Saved','Your seat preferences will be applied to future bookings.');
+}
+
+function updateSeatsLeft(flightId) {
+  const flight = SEAT_FLIGHTS.find(f => f.id === flightId);
+  const state  = seatState[flightId] || {};
+  const total  = flight.rows * 6;
+  const taken  = Object.values(state).filter(s => s === 'occupied').length;
+  document.getElementById('seatsLeft').textContent = (total - taken) + ' available';
+}
+
+function randomizeOccupied() {
+  delete seatState[activeFlight];
+  selectedSeat = null;
+  showSeatPanel(false);
+  renderSeatMap(activeFlight);
+  showToastRaw('info','Seat Map Refreshed','Availability updated with latest occupancy data.');
+}
+
+// Seat ticker simulation
+let tickerInterval = null;
+const tickerMessages = [
+  fn => `🔴 ${Math.floor(Math.random()*15)+5} seats remaining on ${fn}`,
+  fn => `👀 ${Math.floor(Math.random()*8)+2} people viewing ${fn} right now`,
+  fn => `⚡ Last premium seat sold on ${fn} — only economy left`,
+  fn => `✅ Seat 14C on ${fn} just became available`,
+  fn => `🔥 ${fn} is 78% full — book now!`,
+];
+let tickerIdx = 0;
+function startSeatTicker() {
+  if (tickerInterval) clearInterval(tickerInterval);
+  tickerInterval = setInterval(() => {
+    const msg = tickerMessages[tickerIdx % tickerMessages.length](activeFlight);
+    document.getElementById('tickerText').textContent = msg;
+    tickerIdx++;
+  }, 4000);
+}
+
+/* ══════════════════════════════════════════════════════
+   HOTEL ENGINE
+══════════════════════════════════════════════════════ */
+
+const HOTELS = [
+  {
+    id:'h1', name:'The Leela Palace', location:'New Delhi', stars:5, category:'luxury',
+    priceFrom: 12500, rating: 4.9,
+    rooms: [
+      { id:'r1', type:'Deluxe Room',         desc:'Elegantly appointed with city views, king bed, and marble bathroom.', amenities:['Free WiFi','King Bed','City View','Mini Bar','24h Room Service'], price:12500, availability:'good',  view:'city',  upgrade:false, palette:{ wall:'#f5e6d0', floor:'#c9a96e', bed:'#8b5e3c', bedding:'#f0ece8', sky:'#87ceeb' } },
+      { id:'r2', type:'Premium Suite',       desc:'Spacious suite with separate living room, panoramic skyline views.', amenities:['Free WiFi','King Bed','Skyline View','Jacuzzi','Butler Service','Lounge Access'], price:22000, availability:'few',   view:'skyline', upgrade:true, palette:{ wall:'#e8dcc8', floor:'#b8956a', bed:'#5c3d1e', bedding:'#ffffff', sky:'#4a90d9' } },
+      { id:'r3', type:'Royal Suite',         desc:'The pinnacle of luxury — 180° views, private butler, grand piano.', amenities:['Free WiFi','Super King','Panoramic View','Private Pool','Personal Butler','Airport Transfer'], price:45000, availability:'few',   view:'panoramic', upgrade:true, palette:{ wall:'#ede0c8', floor:'#d4a574', bed:'#3d2b1f', bedding:'#f8f5f0', sky:'#5b9bd5' } },
+      { id:'r4', type:'Garden View Room',    desc:'Serene garden-facing room with private balcony and lush greenery.', amenities:['Free WiFi','Queen Bed','Garden View','Balcony'], price:9800, availability:'good',  view:'garden', upgrade:false, palette:{ wall:'#e8f0e0', floor:'#b5a880', bed:'#5a7a3a', bedding:'#f5f0e8', sky:'#7eb87e' } },
+    ]
+  },
+  {
+    id:'h2', name:'ITC Maurya', location:'New Delhi', stars:5, category:'luxury',
+    priceFrom: 9800, rating: 4.8,
+    rooms: [
+      { id:'r5', type:'Executive Room',      desc:'Modern executive room with work desk, high-speed WiFi and city vista.', amenities:['Free WiFi','King Bed','City View','Work Desk','Executive Lounge'], price:9800, availability:'good',  view:'city', upgrade:false, palette:{ wall:'#dde8f0', floor:'#8aa8c0', bed:'#2c4a6e', bedding:'#f0f5f8', sky:'#6fa8dc' } },
+      { id:'r6', type:'ITC One Suite',       desc:'Grand suite with curated art, butler service and private dining.', amenities:['Free WiFi','King Bed','Art Collection','Private Dining','Butler'], price:28000, availability:'few',   view:'city', upgrade:true, palette:{ wall:'#e0d8cc', floor:'#a89070', bed:'#4a3520', bedding:'#f5f0e8', sky:'#5a90d0' } },
+    ]
+  },
+  {
+    id:'h3', name:'Hyatt Regency', location:'Mumbai', stars:4, category:'business',
+    priceFrom: 7200, rating: 4.5,
+    rooms: [
+      { id:'r7', type:'King Room',           desc:'Contemporary king room with harbour glimpses and smart amenities.', amenities:['Free WiFi','King Bed','Harbour View','Smart TV','Work Desk'], price:7200, availability:'good',  view:'harbour', upgrade:false, palette:{ wall:'#e8e8f0', floor:'#909098', bed:'#2a2a4a', bedding:'#ffffff', sky:'#87a8d0' } },
+      { id:'r8', type:'Regency Club Room',   desc:'Elevated experience with club lounge access and premium minibar.', amenities:['Free WiFi','King Bed','Club Lounge','Premium Mini Bar','Express Check-out'], price:11500, availability:'few',   view:'city', upgrade:true, palette:{ wall:'#e0e4ec', floor:'#808898', bed:'#1e2840', bedding:'#f0f2f8', sky:'#7090c0' } },
+      { id:'r9', type:'Twin Room',           desc:'Perfect for two travellers — dual beds, city view, and spacious bath.', amenities:['Free WiFi','Twin Beds','City View','Bathtub'], price:6800, availability:'good',  view:'city', upgrade:false, palette:{ wall:'#eceae4', floor:'#a09888', bed:'#3c3830', bedding:'#f8f5f0', sky:'#a0b8d0' } },
+    ]
+  },
+  {
+    id:'h4', name:'Lemon Tree Premier', location:'Bengaluru', stars:4, category:'business',
+    priceFrom: 4200, rating: 4.3,
+    rooms: [
+      { id:'r10', type:'Deluxe Room',        desc:'Bright, cheerful room with city view and all modern conveniences.', amenities:['Free WiFi','Queen Bed','City View','Smart TV'], price:4200, availability:'good', view:'city', upgrade:false, palette:{ wall:'#f0f4e0', floor:'#a8b878', bed:'#4a6828', bedding:'#f8f5e8', sky:'#88c060' } },
+      { id:'r11', type:'Premier Suite',      desc:'Expansive suite with lounge area and Bengaluru garden views.', amenities:['Free WiFi','King Bed','Garden View','Lounge Area','Breakfast'], price:7800, availability:'few',  view:'garden', upgrade:true, palette:{ wall:'#e8f2e0', floor:'#98b868', bed:'#385820', bedding:'#f5f8f0', sky:'#70b050' } },
+    ]
+  },
+  {
+    id:'h5', name:'Treebo Trend', location:'Mumbai', stars:3, category:'budget',
+    priceFrom: 2200, rating: 4.0,
+    rooms: [
+      { id:'r12', type:'Standard Room',      desc:'Clean, comfortable room with all essentials for a great stay.', amenities:['Free WiFi','Double Bed','AC','Smart TV'], price:2200, availability:'good', view:'street', upgrade:false, palette:{ wall:'#f0ece4', floor:'#c0b090', bed:'#504030', bedding:'#f8f5f0', sky:'#b0c0d0' } },
+      { id:'r13', type:'Superior Room',      desc:'Slightly larger with a sitting area and better floor.', amenities:['Free WiFi','King Bed','AC','Smart TV','Breakfast'], price:3200, availability:'good', view:'street', upgrade:false, palette:{ wall:'#eceae0', floor:'#b8a888', bed:'#483828', bedding:'#f5f2e8', sky:'#a8b8c8' } },
+    ]
+  },
+];
+
+let selectedHotelId = null;
+let selectedRoomId  = null;
+let savedRoomPrefs  = [];
+let hotelFilter     = 'all';
+let hotelTickerInt  = null;
+let roomAvailTimers = {};
+
+function initHotelPage() {
+  renderHotelList();
+  stopHotelTicker();
+}
+
+function filterHotels(cat, btn) {
+  hotelFilter = cat;
+  document.querySelectorAll('.hotel-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHotelList();
+}
+
+function renderHotelList() {
+  const filtered = hotelFilter === 'all' ? HOTELS : HOTELS.filter(h => h.category === hotelFilter);
+  const list = document.getElementById('hotelList');
+  list.innerHTML = filtered.map(h => `
+    <div class="hotel-item ${selectedHotelId===h.id?'selected':''}" onclick="selectHotel('${h.id}')">
+      <div class="hotel-stars">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</div>
+      <div class="hotel-item-name">${h.name}</div>
+      <div class="hotel-item-loc">📍 ${h.location} · ${h.category.charAt(0).toUpperCase()+h.category.slice(1)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="hotel-item-price">₹${h.priceFrom.toLocaleString('en-IN')}<span style="font-size:10px;font-family:'DM Sans',sans-serif;font-weight:400;color:var(--muted)">/night</span></div>
+        <div style="font-size:11px;color:var(--muted)">⭐ ${h.rating}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectHotel(hotelId) {
+  selectedHotelId = hotelId;
+  selectedRoomId  = null;
+  renderHotelList();
+
+  const hotel = HOTELS.find(h => h.id === hotelId);
+  document.getElementById('selectedHotelName').textContent = hotel.name;
+  document.getElementById('selectedHotelMeta').textContent = `${hotel.location} · ${'★'.repeat(hotel.stars)} · ${hotel.rooms.length} room types available`;
+  document.getElementById('roomEmptyState').style.display  = 'none';
+  document.getElementById('roomBookingPanel').style.display = 'none';
+  renderRoomGrid(hotel);
+  startHotelTicker(hotel);
+}
+
+function renderRoomGrid(hotel) {
+  const grid = document.getElementById('roomGrid');
+  grid.innerHTML = hotel.rooms.map(room => {
+    const availClass = room.availability === 'few' ? 'avail-few' : room.availability === 'sold' ? 'avail-sold' : 'avail-good';
+    const availText  = room.availability === 'few' ? 'Only 2 left!' : room.availability === 'sold' ? 'Sold Out' : 'Available';
+    const isSelected = selectedRoomId === room.id;
+    return `
+      <div class="room-card ${isSelected?'selected-room':''}" onclick="selectRoom('${hotel.id}','${room.id}')">
+        <div class="room-preview">
+          ${buildRoomPreview3D(room)}
+          <div class="view-badge" style="background:rgba(28,25,23,.7);color:#fff">🏞 ${room.view.charAt(0).toUpperCase()+room.view.slice(1)} View</div>
+          <div class="avail-badge ${availClass}">${availText}</div>
+          ${room.upgrade ? '<div style="position:absolute;bottom:10px;left:10px;background:rgba(124,58,237,.9);color:#fff;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">✨ UPGRADE</div>' : ''}
+        </div>
+        <div class="room-info">
+          <div class="room-type">${room.type}</div>
+          <div class="room-desc">${room.desc}</div>
+          <div class="room-amenities">
+            ${room.amenities.map(a => `<span class="amenity-tag">${a}</span>`).join('')}
+          </div>
+          <div class="room-price-row">
+            <div>
+              <div class="room-price">₹${room.price.toLocaleString('en-IN')}</div>
+              <div class="room-per-night">per night · taxes incl.</div>
+            </div>
+            ${room.upgrade ? '<span class="room-upgrade-tag">✨ Premium</span>' : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function buildRoomPreview3D(room) {
+  const p = room.palette;
+  // Sky/view gradient behind wall
+  const skyGrads = {
+    city:     'linear-gradient(180deg,#1a2a4a 0%,#2d5a8e 40%,#87ceeb 100%)',
+    skyline:  'linear-gradient(180deg,#0a1628 0%,#1e3a6e 30%,#4a90d9 70%,#87ceeb 100%)',
+    panoramic:'linear-gradient(180deg,#0d1b2a 0%,#1a3a5c 30%,#2e6fad 60%,#87ceeb 100%)',
+    garden:   'linear-gradient(180deg,#1a3a1a 0%,#2d6e2d 40%,#7eb87e 80%,#c8e6c8 100%)',
+    harbour:  'linear-gradient(180deg,#0a2040 0%,#1a4070 40%,#4080b0 70%,#87b8e0 100%)',
+    street:   'linear-gradient(180deg,#2a2a2a 0%,#4a4a4a 40%,#888 70%,#bbb 100%)',
+  };
+  const sky = skyGrads[room.view] || skyGrads.city;
+  return `
+    <div class="room-preview-3d" style="background:${sky}">
+      <!-- Floor perspective -->
+      <div class="room-floor" style="background:linear-gradient(180deg,${p.floor}dd 0%,${p.floor} 100%)"></div>
+      <!-- Wall -->
+      <div class="room-wall-back" style="background:${p.wall}"></div>
+      <!-- Window -->
+      <div class="room-window" style="border-color:${p.floor}">
+        <div class="room-window-pane">
+          <div style="background:${p.sky}dd"></div><div style="background:${p.sky}aa"></div>
+          <div style="background:${p.sky}88"></div><div style="background:${p.sky}cc"></div>
+        </div>
+      </div>
+      <!-- Bed -->
+      <div class="room-furniture">
+        <div class="room-bed" style="background:${p.bed}">
+          <div class="room-pillow" style="background:${p.bedding};left:6px"></div>
+          <div class="room-pillow" style="background:${p.bedding};right:6px"></div>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:60%;background:${p.bedding}20;border-radius:0 0 4px 4px"></div>
+        </div>
+      </div>
+      <!-- Lamp -->
+      <div class="room-lamp" style="right:18px;bottom:38%">
+        <div class="room-lamp-shade"></div>
+        <div style="width:3px;height:16px;background:${p.floor};margin:0 auto"></div>
+        <div class="room-lamp-base" style="background:${p.floor}"></div>
+        <div class="room-lamp-glow"></div>
+      </div>
+      <!-- Bedside table -->
+      <div style="position:absolute;bottom:28%;left:50%;transform:translateX(-50%) translateX(55px);width:18px;height:18px;background:${p.bed}88;border-radius:3px 3px 0 0"></div>
+    </div>
+  `;
+}
+
+function selectRoom(hotelId, roomId) {
+  selectedRoomId = roomId;
+  const hotel = HOTELS.find(h => h.id === hotelId);
+  const room  = hotel.rooms.find(r => r.id === roomId);
+
+  // Re-render grid to update selection highlight
+  renderRoomGrid(hotel);
+
+  // Show booking panel
+  const panel = document.getElementById('roomBookingPanel');
+  panel.style.display = 'block';
+  document.getElementById('bookedRoomName').textContent    = room.type;
+  document.getElementById('bookedRoomDesc').textContent    = room.desc;
+  document.getElementById('bookedRoomNightly').textContent = `₹${room.price.toLocaleString('en-IN')}`;
+  document.getElementById('bookedRoomTotal').textContent   = `₹${(room.price * 2).toLocaleString('en-IN')}`;
+
+  // Mini 3D preview inside panel
+  document.getElementById('selectedRoomVisual').innerHTML = buildRoomPreview3D(room);
+
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function toggleRoomPref(tag) {
+  tag.classList.toggle('on');
+}
+
+function saveRoomPrefs() {
+  const on = [...document.querySelectorAll('.pref-tag.on')].map(t => t.textContent.trim());
+  if (!on.length) { showToastRaw('info','No preferences','Select at least one preference to save.'); return; }
+  savedRoomPrefs = on;
+  const panel = document.getElementById('savedHotelPrefsPanel');
+  panel.style.display = 'block';
+  document.getElementById('savedHotelPrefChips').innerHTML = savedRoomPrefs.map(p =>
+    `<span class="saved-pref-chip">${p}</span>`
+  ).join('');
+  document.getElementById('roomPrefsSaved').style.display = 'block';
+  setTimeout(() => document.getElementById('roomPrefsSaved').style.display = 'none', 3000);
+  showToastRaw('ok','Room Preferences Saved','Applied to future hotel bookings automatically.');
+}
+
+function confirmRoom() {
+  if (!selectedRoomId) return;
+  const hotel = HOTELS.find(h => h.id === selectedHotelId);
+  const room  = hotel.rooms.find(r => r.id === selectedRoomId);
+  showToastRaw('ok', `Room Booked — ${hotel.name}`, `${room.type} confirmed for 2 nights. ₹${(room.price*2).toLocaleString('en-IN')} total.`);
+  room.availability = 'few';
+  renderRoomGrid(hotel);
+  clearRoomSelection();
+}
+
+function clearRoomSelection() {
+  selectedRoomId = null;
+  document.getElementById('roomBookingPanel').style.display = 'none';
+  if (selectedHotelId) {
+    const hotel = HOTELS.find(h => h.id === selectedHotelId);
+    renderRoomGrid(hotel);
+  }
+}
+
+function startHotelTicker(hotel) {
+  stopHotelTicker();
+  const tickerEl = document.getElementById('hotelAvailTicker');
+  const tickerTx = document.getElementById('hotelTickerText');
+  tickerEl.style.display = 'flex';
+  const msgs = [
+    `Only ${Math.floor(Math.random()*4)+1} rooms left at ${hotel.name}!`,
+    `${Math.floor(Math.random()*12)+3} people viewing ${hotel.name} now`,
+    `Last booked 8 minutes ago at ${hotel.name}`,
+    `🔥 ${hotel.name} is 92% full this weekend`,
+  ];
+  let i = 0;
+  tickerTx.textContent = msgs[0];
+  hotelTickerInt = setInterval(() => {
+    i = (i+1) % msgs.length;
+    tickerTx.textContent = msgs[i];
+  }, 5000);
+}
+
+function stopHotelTicker() {
+  if (hotelTickerInt) clearInterval(hotelTickerInt);
+  document.getElementById('hotelAvailTicker').style.display = 'none';
+}
+
+/* ─────────────────────────────────────────────
+   WEBSOCKET
+───────────────────────────────────────────── */
+function connectWebSocket() {
+  setWsStatus('connecting');
+  try {
+    const socket = new SockJS(WS_URL);
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null;
+    stompClient.connect({}, () => {
+      setWsStatus('connected');
+      Object.keys(displayedCards).forEach(fn => subscribeToFlight(fn));
+    }, () => {
+      setWsStatus('error');
+      setTimeout(connectWebSocket, 5000);
+    });
+  } catch(e) {
+    setWsStatus('error');
+    setTimeout(connectWebSocket, 8000);
+  }
+}
+
+function setWsStatus(state) {
+  const dot = document.getElementById('wsDot'), label = document.getElementById('wsLabel');
+  dot.className = 'ws-dot ' + state;
+  label.textContent = { connecting:'Connecting…', connected:'Live', error:'Reconnecting…' }[state];
+}
+
+function subscribeToFlight(fn) {
+  if (!stompClient?.connected || subscriptions[fn]) return;
+  subscriptions[fn] = stompClient.subscribe(`/topic/flights/${fn}`, msg => {
+    handleWebSocketUpdate(JSON.parse(msg.body));
+  });
+}
+
+function unsubscribeFromFlight(fn) {
+  if (subscriptions[fn]) { subscriptions[fn].unsubscribe(); delete subscriptions[fn]; }
+}
+
+function handleWebSocketUpdate(notification) {
+  const fn = notification.flightNumber;
+  if (displayedCards[fn]) {
+    patchCard(fn, {
+      status: notification.newStatus,
+      delayMinutes: notification.delayMinutes,
+      estimatedDeparture: notification.newEstimatedDeparture,
+      estimatedArrival: notification.newEstimatedArrival,
+    });
+    flashCard(fn, notification.notificationType);
+  }
+  addSidebarNotification(notification);
+  const significant = ['DELAY_UPDATE','BOARDING_STARTED','STATUS_NORMALISED','CANCELLATION'];
+  if (significant.includes(notification.notificationType)) showToast(notification);
+  updateSummaryBar();
+}
+
+/* ─────────────────────────────────────────────
+   REST API
+───────────────────────────────────────────── */
+async function trackFlight() {
+  const fn = document.getElementById('flightInput').value.trim().toUpperCase();
+  const userId = document.getElementById('userIdInput').value.trim() || 'demo_user';
+  if (!fn) return;
+  if (displayedCards[fn]) {
+    displayedCards[fn].scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('flightInput').value = '';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/track`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ userId, flightNumber: fn })
+    });
+    if (res.status === 409) {
+      await fetchAndDisplayFlight(fn);
+    } else if (!res.ok) {
+      const err = await res.json();
+      showDemoCard(fn); // Fall back to demo card when backend unavailable
+    } else {
+      const body = await res.json();
+      renderFlightCard(body.data);
+      subscribeToFlight(fn);
+    }
+    document.getElementById('flightInput').value = '';
+    updateSummaryBar();
+  } catch(e) {
+    showDemoCard(fn);
+    document.getElementById('flightInput').value = '';
+  }
+}
+
+async function fetchAndDisplayFlight(fn) {
+  try {
+    const res  = await fetch(`${API_BASE}/${fn}`);
+    const body = await res.json();
+    if (res.ok && body.data) { renderFlightCard(body.data); subscribeToFlight(fn); }
+    else showDemoCard(fn);
+  } catch(e) { showDemoCard(fn); }
+}
+
+async function loadAllFlights() {
+  try {
+    const res  = await fetch(`${API_BASE}/all`);
+    const body = await res.json();
+    if (!res.ok) { KNOWN_FLIGHTS.forEach(fn => { if (!displayedCards[fn]) showDemoCard(fn); }); return; }
+    body.data.forEach(f => { if (!displayedCards[f.flightNumber]) { renderFlightCard(f); subscribeToFlight(f.flightNumber); } });
+    updateSummaryBar();
+  } catch(e) {
+    KNOWN_FLIGHTS.forEach(fn => { if (!displayedCards[fn]) showDemoCard(fn); });
+  }
+}
+
+async function removeFlight(fn) {
+  const userId = document.getElementById('userIdInput').value.trim() || 'demo_user';
+  try { await fetch(`${API_BASE}/untrack`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, flightNumber: fn }) }); } catch(e) {}
+  unsubscribeFromFlight(fn);
+  const card = displayedCards[fn];
+  if (card) {
+    card.style.transition = 'opacity .3s, transform .3s';
+    card.style.opacity = '0'; card.style.transform = 'scale(.96)';
+    setTimeout(() => { card.remove(); delete displayedCards[fn]; updateSummaryBar(); }, 300);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   DEMO CARDS (when backend not available)
+───────────────────────────────────────────── */
+const DEMO_FLIGHTS = {
+  'AI302': { flightNumber:'AI302', origin:'DEL', destination:'BOM', status:'ON_TIME',   gate:'B14', terminal:'T3', aircraftType:'B737', scheduledDeparture: new Date(Date.now()+7200000).toISOString(), estimatedDeparture: new Date(Date.now()+7200000).toISOString(), estimatedArrival: new Date(Date.now()+9600000).toISOString(), delayMinutes:0, minutesToDeparture:120 },
+  '6E456': { flightNumber:'6E456', origin:'BOM', destination:'BLR', status:'DELAYED',   gate:'A8',  terminal:'T1', aircraftType:'A320', scheduledDeparture: new Date(Date.now()+3600000).toISOString(), estimatedDeparture: new Date(Date.now()+5400000).toISOString(), estimatedArrival: new Date(Date.now()+8400000).toISOString(), delayMinutes:30, minutesToDeparture:90 },
+  'SG101': { flightNumber:'SG101', origin:'DEL', destination:'BLR', status:'BOARDING',  gate:'C3',  terminal:'T2', aircraftType:'B737', scheduledDeparture: new Date(Date.now()+1200000).toISOString(), estimatedDeparture: new Date(Date.now()+1200000).toISOString(), estimatedArrival: new Date(Date.now()+5400000).toISOString(), delayMinutes:0, minutesToDeparture:20 },
+  'UK820': { flightNumber:'UK820', origin:'BLR', destination:'HYD', status:'ON_TIME',   gate:'D2',  terminal:'T1', aircraftType:'ATR72', scheduledDeparture: new Date(Date.now()+10800000).toISOString(), estimatedDeparture: new Date(Date.now()+10800000).toISOString(), estimatedArrival: new Date(Date.now()+13200000).toISOString(), delayMinutes:0, minutesToDeparture:180 },
+  'GO251': { flightNumber:'GO251', origin:'COK', destination:'DEL', status:'DEPARTED',  gate:'E6',  terminal:'T1', aircraftType:'B737', scheduledDeparture: new Date(Date.now()-1800000).toISOString(), estimatedDeparture: new Date(Date.now()-1800000).toISOString(), estimatedArrival: new Date(Date.now()+6600000).toISOString(), delayMinutes:0, minutesToDeparture:-30 },
+  'AI131': { flightNumber:'AI131', origin:'CCU', destination:'BOM', status:'ON_TIME',   gate:'F11', terminal:'T3', aircraftType:'A321', scheduledDeparture: new Date(Date.now()+14400000).toISOString(), estimatedDeparture: new Date(Date.now()+14400000).toISOString(), estimatedArrival: new Date(Date.now()+19200000).toISOString(), delayMinutes:0, minutesToDeparture:240 },
+};
+
+function showDemoCard(fn) {
+  const f = DEMO_FLIGHTS[fn] || {
+    flightNumber: fn, origin:'???', destination:'???', status:'ON_TIME',
+    gate:'—', terminal:'', aircraftType:'', delayMinutes:0, minutesToDeparture:120,
+    scheduledDeparture: new Date().toISOString(),
+    estimatedDeparture: new Date().toISOString(),
+    estimatedArrival: new Date(Date.now()+7200000).toISOString()
+  };
+  renderFlightCard(f);
+}
+
+/* ─────────────────────────────────────────────
+   PRICE CALCULATION FOR FLIGHT CARDS
+───────────────────────────────────────────── */
+const ROUTE_BASES = { 'DEL-BOM':4500,'BOM-BLR':3200,'DEL-BLR':5200,'BLR-HYD':2100,'COK-DEL':4800,'CCU-BOM':3900 };
+
+function getFlightPrice(f) {
+  const key = `${f.origin}-${f.destination}`;
+  const base = ROUTE_BASES[key] || 3500;
+  let multiplier = 1.0;
+  const demand = Math.random() * 60 + 30;
+  if (demand > 80) multiplier = 1.22;
+  else if (demand > 60) multiplier = 1.10;
+  else if (demand < 40) multiplier = 0.92;
+  // Weekend check
+  const day = new Date().getDay();
+  if (day === 5 || day === 6 || day === 0) multiplier *= 1.08;
+  return { base, current: Math.round(base * multiplier), multiplier: Math.round(multiplier * 100) / 100, demand: Math.round(demand) };
+}
+
+/* ─────────────────────────────────────────────
+   CARD RENDERING
+───────────────────────────────────────────── */
+function renderFlightCard(f) {
+  const grid  = document.getElementById('flightGrid');
+  const empty = grid.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const card = document.createElement('div');
+  card.id = `card-${f.flightNumber}`;
+  card.className = `flight-card card-${statusClass(f.status)}`;
+
+  const pricing = getFlightPrice(f);
+  card._pricing = pricing;
+
+  card.innerHTML = buildCardHTML(f, pricing);
+  grid.appendChild(card);
+  displayedCards[f.flightNumber] = card;
+  updatePricingAlerts();
+}
+
+function buildCardHTML(f, pricing) {
+  const delayed  = f.status === 'DELAYED' && f.delayMinutes > 0;
+  const depTime  = formatTime(f.estimatedDeparture);
+  const arrTime  = formatTime(f.estimatedArrival);
+  const schDep   = formatTime(f.scheduledDeparture);
+  const mins     = f.minutesToDeparture;
+  const isSurge  = pricing.multiplier > 1.05;
+  const isDrop   = pricing.multiplier < 0.97;
+  const frozen   = frozenPrices.find(fp => fp.flight === f.flightNumber);
+
+  return `
+    <div class="card-header">
+      <div class="flight-num">${f.flightNumber}</div>
+      <div class="status-badge badge-${statusClass(f.status)}">${statusLabel(f.status)}</div>
+      <button class="remove-btn" onclick="removeFlight('${f.flightNumber}')" title="Remove">✕</button>
+    </div>
+    <div class="route">
+      <div class="airport"><div class="iata">${f.origin}</div><div class="city">${f.origin}</div></div>
+      <div class="route-line"><div class="route-track"></div><div class="route-label">${f.aircraftType||''}</div></div>
+      <div class="airport" style="text-align:right"><div class="iata">${f.destination}</div><div class="city">${f.destination}</div></div>
+    </div>
+    <div class="price-tag">
+      <div>
+        ${frozen ? `<div class="price-frozen">🔒 FROZEN</div><div class="price-current">₹${frozen.price.toLocaleString('en-IN')}</div>` :
+          `<div class="price-current">₹${pricing.current.toLocaleString('en-IN')}</div>`}
+        ${!frozen && isSurge ? `<div class="price-original">₹${pricing.base.toLocaleString('en-IN')}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${frozen ? `<span class="price-frozen">Locked ${frozen.hours}h</span>` :
+          isSurge ? `<span class="price-surge">↑ +${Math.round((pricing.multiplier-1)*100)}%</span>` :
+          isDrop  ? `<span class="price-drop">↓ ${Math.round((1-pricing.multiplier)*100)}% off</span>` : ''}
+        <span style="font-size:10px;color:var(--muted)">per person</span>
+      </div>
+    </div>
+    <div class="times">
+      <div class="time-block">
+        <div class="time-label">Departure</div>
+        ${delayed ? `<div class="time-orig">${schDep}</div><div class="time-new">${depTime}</div>` : `<div class="time-value">${depTime}</div>`}
+      </div>
+      <div class="time-block">
+        <div class="time-label">Arrival ETA</div>
+        <div class="time-value">${arrTime}</div>
+      </div>
+    </div>
+    <div class="delay-bar ${delayed?'visible':''}" id="delay-${f.flightNumber}">
+      ⏱ Delayed ${f.delayMinutes} min
+    </div>
+    <div class="card-footer">
+      <div>🚪 Gate ${f.gate||'—'} · ${f.terminal||''}</div>
+      <div class="card-actions">
+        <button class="history-btn" onclick="openHistoryModal('${f.flightNumber}','${f.origin}','${f.destination}')">📈</button>
+        ${!frozen ? `<button class="freeze-btn" onclick="openFreezeModal('${f.flightNumber}',${pricing.current},'${f.origin}','${f.destination}')">🔒</button>` : ''}
+        <button class="book-btn" onclick="showToastRaw('ok','Booking','Redirecting to booking for ${f.flightNumber}...')">Book ₹${frozen ? frozen.price.toLocaleString('en-IN') : pricing.current.toLocaleString('en-IN')}</button>
+        <button class="remove-btn" onclick="removeFlight('${f.flightNumber}')">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+function patchCard(fn, patch) {
+  const card = displayedCards[fn]; if (!card) return;
+  const badge = card.querySelector('.status-badge');
+  if (badge) { badge.className = `status-badge badge-${statusClass(patch.status)}`; badge.textContent = statusLabel(patch.status); }
+  card.className = `flight-card card-${statusClass(patch.status)}`;
+  const delayBar = card.querySelector(`#delay-${fn}`);
+  if (delayBar) {
+    const delayed = patch.status === 'DELAYED' && patch.delayMinutes > 0;
+    delayBar.classList.toggle('visible', delayed);
+    if (delayed) delayBar.textContent = `⏱ Delayed ${patch.delayMinutes} min`;
+  }
+}
+
+function flashCard(fn, notifType) {
+  const card = displayedCards[fn]; if (!card) return;
+  const colorMap = { DELAY_UPDATE:'#fff5f5', BOARDING_STARTED:'#fffbeb', STATUS_NORMALISED:'#f0fdf4', DEPARTURE_CHANGE:'#eff6ff' };
+  card.style.setProperty('--flash-color', colorMap[notifType]||'#fffde7');
+  card.classList.remove('card-flash'); void card.offsetWidth; card.classList.add('card-flash');
+}
+
+/* ─────────────────────────────────────────────
+   PRICE FREEZE
+───────────────────────────────────────────── */
+function openFreezeModal(fn, price, origin, dest) {
+  const body = document.getElementById('freezeModalBody');
+  body.innerHTML = `
+    <div style="background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${origin} → ${dest} · ${fn}</div>
+      <div style="font-size:28px;font-weight:800;color:var(--purple)">₹${price.toLocaleString('en-IN')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Current price — will be locked for you</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Freeze Duration</label>
+      <select class="select" id="freezeDuration">
+        <option value="6">6 hours — Free</option>
+        <option value="12">12 hours — ₹99</option>
+        <option value="24" selected>24 hours — ₹199</option>
+      </select>
+    </div>
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:12px;font-size:12px;color:var(--amber);margin-bottom:16px">
+      ⚡ Price Freeze protects you from any increase during the freeze period. If prices drop, you pay the lower price!
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-purple" style="flex:1" onclick="confirmFreeze('${fn}',${price},'${origin}','${dest}')">🔒 Freeze Price</button>
+      <button class="btn btn-outline" onclick="closeModal('freezeModal')">Cancel</button>
+    </div>
+  `;
+  openModal('freezeModal');
+}
+
+function confirmFreeze(fn, price, origin, dest) {
+  const hours = parseInt(document.getElementById('freezeDuration').value);
+  const freeze = { flight: fn, price, origin, dest, hours, expiresAt: Date.now() + hours*3600000, frozenAt: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) };
+  // Remove existing freeze for same flight
+  const idx = frozenPrices.findIndex(fp => fp.flight === fn);
+  if (idx > -1) frozenPrices.splice(idx, 1);
+  frozenPrices.push(freeze);
+  closeModal('freezeModal');
+  // Refresh card
+  if (displayedCards[fn]) {
+    const f = DEMO_FLIGHTS[fn] || { flightNumber:fn, origin, destination:dest };
+    const pricing = displayedCards[fn]._pricing || { current:price, base:price, multiplier:1, demand:50 };
+    displayedCards[fn].innerHTML = buildCardHTML(f, pricing);
+  }
+  updateFrozenPricesSidebar();
+  document.getElementById('frozenCount').textContent = frozenPrices.length;
+  showToastRaw('price', `Price Frozen — ${fn}`, `₹${price.toLocaleString('en-IN')} locked for ${hours} hours.`);
+  addSidebarNotification({ flightNumber:fn, notificationType:'PRICE_FREEZE', message:`Price ₹${price.toLocaleString('en-IN')} frozen for ${hours}h` });
+}
+
+function updateFrozenPricesSidebar() {
+  const el = document.getElementById('frozenPricesSidebar');
+  if (frozenPrices.length === 0) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No prices frozen yet.</div>'; return; }
+  el.innerHTML = frozenPrices.map(fp => {
+    const remaining = Math.max(0, fp.expiresAt - Date.now());
+    const hrs = Math.floor(remaining/3600000);
+    const mins= Math.floor((remaining%3600000)/60000);
+    return `
+      <div style="background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700">${fp.flight}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--purple)">₹${fp.price.toLocaleString('en-IN')}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${fp.origin} → ${fp.dest}</div>
+        <div style="font-size:11px;color:var(--amber);margin-top:4px">⏱ Expires in ${hrs}h ${mins}m</div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   PRICE HISTORY MODAL
+───────────────────────────────────────────── */
+function openHistoryModal(fn, origin, dest) {
+  const key = `${origin}-${dest}`;
+  const base = ROUTE_BASES[key] || 3500;
+  const history = generatePriceHistory(base, 14);
+  document.getElementById('historyModalTitle').textContent = `📈 Price History — ${fn} (${origin}→${dest})`;
+
+  if (historyModalChart) { historyModalChart.destroy(); historyModalChart = null; }
+
+  openModal('historyModal');
+  setTimeout(() => {
+    const ctx = document.getElementById('historyChartModal').getContext('2d');
+    historyModalChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map(h => h.date),
+        datasets: [
+          { label:'Price', data: history.map(h => h.price), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.08)', tension:.4, fill:true, pointRadius:3, pointBackgroundColor:'#dc2626' },
+          { label:'Base', data: history.map(() => base), borderColor:'#cbd5e1', borderDash:[6,4], tension:0, fill:false, pointRadius:0 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: { legend:{ display:false } },
+        scales: {
+          y: { ticks: { callback: v => '₹'+v.toLocaleString('en-IN'), font:{size:11} }, grid:{ color:'rgba(0,0,0,.05)' } },
+          x: { ticks:{ font:{size:11}, maxRotation:30 }, grid:{display:false} }
+        }
+      }
+    });
+
+    const curr = history[history.length-1].price;
+    const min  = Math.min(...history.map(h=>h.price));
+    const max  = Math.max(...history.map(h=>h.price));
+    document.getElementById('historyModalMeta').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Current</div>
+          <div style="font-size:15px;font-weight:700;color:var(--red)">₹${curr.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="background:var(--green-bg);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">14-day Low</div>
+          <div style="font-size:15px;font-weight:700;color:var(--green)">₹${min.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="background:var(--red-bg);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">14-day High</div>
+          <div style="font-size:15px;font-weight:700;color:var(--red)">₹${max.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+    `;
+  }, 100);
+}
+
+/* ─────────────────────────────────────────────
+   PRICING PAGE
+───────────────────────────────────────────── */
+function renderPricingPage() {
+  const grid = document.getElementById('pricingGrid');
+  grid.innerHTML = PRICING_ROUTES.map(route => {
+    const { price, multiplier } = calcPrice(route);
+    const tierClass = { peak:'tier-peak', normal:'tier-normal', offpeak:'tier-offpeak' }[route.season];
+    const tierLabel = { peak:'🔴 Peak Season', normal:'🟢 Normal Season', offpeak:'🔵 Off-Peak' }[route.season];
+    const cardClass = { peak:'peak', normal:'normal', offpeak:'off-peak' }[route.season];
+    const demandClass = route.demand > 70 ? 'demand-high' : route.demand > 45 ? 'demand-med' : 'demand-low';
+    const change = Math.round((multiplier - 1) * 100);
+    const key = route.route.replace('→','-');
+    return `
+      <div class="pricing-card ${cardClass}">
+        <div class="pc-route">${route.route}</div>
+        <div class="pc-tier"><span class="pc-tier-badge ${tierClass}">${tierLabel}</span></div>
+        <div class="pc-price">₹${price.toLocaleString('en-IN')}<sub>/person</sub></div>
+        <div class="pc-base">Base: ₹${route.base.toLocaleString('en-IN')}</div>
+        <div class="pc-multiplier ${change>=0?'stat-up':'stat-down'}">${change>=0?'↑ +':'↓ '}${Math.abs(change)}% from base</div>
+        <div class="demand-bar">
+          <div class="demand-label"><span>Seat demand</span><span>${route.demand}%</span></div>
+          <div class="demand-track"><div class="demand-fill ${demandClass}" style="width:${route.demand}%"></div></div>
+        </div>
+        <div class="pc-factor">${route.factors.map(f=>`• ${f}`).join('<br>')}</div>
+        <div class="pc-actions">
+          <button class="btn btn-primary btn-sm" onclick="showToastRaw('ok','Booking','Opening booking for ${route.route}...')">Book Now</button>
+          <button class="btn btn-purple btn-sm" onclick="openFreezeModal('${key}',${price},'${route.route.split('→')[0]}','${route.route.split('→')[1]}')">🔒 Freeze</button>
+          <button class="btn btn-outline btn-sm" onclick="showPage('history')">📈 History</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   HISTORY PAGE
+───────────────────────────────────────────── */
+function renderHistoryPage() {
+  const routeKey = document.getElementById('historyRouteSelect').value;
+  const days     = parseInt(document.getElementById('historyPeriod').value);
+  const routeParts = routeKey.split('-');
+  const base    = ROUTE_BASES[routeKey] || 3500;
+  const history = generatePriceHistory(base, days);
+
+  const curr    = history[history.length-1].price;
+  const min     = Math.min(...history.map(h=>h.price));
+  const max     = Math.max(...history.map(h=>h.price));
+  const avg     = Math.round(history.reduce((s,h)=>s+h.price,0)/history.length);
+  const trend   = curr > history[0].price ? 'up' : 'down';
+
+  // Stats
+  document.getElementById('historyStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Current Price</div><div class="stat-value">₹${curr.toLocaleString('en-IN')}</div><div class="stat-sub stat-${trend==='up'?'up':'down'}">${trend==='up'?'↑ Rising':'↓ Falling'}</div></div>
+    <div class="stat-card"><div class="stat-label">${days}-Day Low</div><div class="stat-value stat-down">₹${min.toLocaleString('en-IN')}</div><div class="stat-sub">Best time to buy</div></div>
+    <div class="stat-card"><div class="stat-label">${days}-Day High</div><div class="stat-value stat-up">₹${max.toLocaleString('en-IN')}</div><div class="stat-sub">Peak pricing</div></div>
+    <div class="stat-card"><div class="stat-label">Average</div><div class="stat-value">₹${avg.toLocaleString('en-IN')}</div><div class="stat-sub">Over ${days} days</div></div>
+  `;
+
+  // Chart
+  if (historyChart) { historyChart.destroy(); historyChart = null; }
+  setTimeout(() => {
+    const ctx = document.getElementById('historyPageChart').getContext('2d');
+    historyChart = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels: history.map(h=>h.date),
+        datasets:[
+          { label:'Price', data:history.map(h=>h.price), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.07)', tension:.4, fill:true, pointRadius: history.length<=14?4:2, pointBackgroundColor:'#dc2626' },
+          { label:'Base Price', data:history.map(()=>base), borderColor:'#cbd5e1', borderDash:[6,4], tension:0, fill:false, pointRadius:0 },
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{
+          y:{ ticks:{callback: v=>'₹'+v.toLocaleString('en-IN'), font:{size:11}}, grid:{color:'rgba(0,0,0,.04)'} },
+          x:{ ticks:{font:{size:11}, maxRotation:40, autoSkip:true, maxTicksLimit:12}, grid:{display:false} }
+        }
+      }
+    });
+  }, 50);
+
+  // Events
+  const events = [
+    { date: history[Math.floor(days*0.2)]?.date, type:'surge',  msg:`Price jumped to ₹${Math.round(max*.95).toLocaleString('en-IN')} due to holiday demand` },
+    { date: history[Math.floor(days*0.5)]?.date, type:'drop',   msg:`Price dropped to ₹${Math.round(min*1.02).toLocaleString('en-IN')} — low demand off-peak slot` },
+    { date: history[Math.floor(days*0.8)]?.date, type:'freeze', msg:`3 users froze price at ₹${Math.round(avg*.98).toLocaleString('en-IN')}` },
+    { date: history[history.length-1]?.date,    type:'info',   msg:`Current price: ₹${curr.toLocaleString('en-IN')} (${trend==='up'?'+':''}${Math.round((curr-base)/base*100)}% vs base)` },
+  ];
+  document.getElementById('priceEvents').innerHTML = events.map(e => {
+    const colors = { surge:'red', drop:'green', freeze:'purple', info:'blue' };
+    const icons  = { surge:'🔺', drop:'🔻', freeze:'🔒', info:'ℹ️' };
+    const c = colors[e.type];
+    return `
+      <div style="background:var(--${c}-bg);border:1px solid var(--${c}-bd);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:20px">${icons[e.type]}</div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${e.date}</div>
+          <div style="font-size:13px;font-weight:500">${e.msg}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   REFUNDS PAGE
+───────────────────────────────────────────── */
+function renderRefundsPage() {
+  const active    = BOOKINGS.filter(b=>b.status==='active').length;
+  const pending   = BOOKINGS.filter(b=>b.refundStatus==='pending').length;
+  const refunded  = BOOKINGS.filter(b=>b.refundStatus==='completed').reduce((s,b)=>s+(b.refundAmount||0),0);
+  document.getElementById('totalBookings').textContent = BOOKINGS.length;
+  document.getElementById('activeBookings').textContent = active;
+  document.getElementById('pendingRefunds').textContent = pending;
+  document.getElementById('totalRefunded').textContent  = '₹'+refunded.toLocaleString('en-IN');
+
+  // Refund tracker for pending
+  const pendingB = BOOKINGS.find(b=>b.refundStatus==='pending');
+  const trackerEl = document.getElementById('refundTrackerContent');
+  if (pendingB) {
+    trackerEl.innerHTML = `
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Booking <strong>${pendingB.id}</strong> · ${pendingB.route} · Cancelled on ${new Date(pendingB.cancelledAt).toLocaleDateString('en-IN')}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--amber);margin-bottom:16px">Refund of ₹${pendingB.refundAmount.toLocaleString('en-IN')} — Processing (2–3 business days)</div>
+      <div class="tracker-steps">
+        <div class="tracker-step">
+          <div class="step-dot step-done">✓</div>
+          <div class="step-label">Cancelled</div>
+        </div>
+        <div class="step-line done"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-done">✓</div>
+          <div class="step-label">Verified</div>
+        </div>
+        <div class="step-line done"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-active">⟳</div>
+          <div class="step-label">Processing</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="tracker-step">
+          <div class="step-dot step-pending">4</div>
+          <div class="step-label">Credited</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">Expected credit: 2–3 business days to original payment method. Reason: <em>${pendingB.cancelReason}</em></div>
+    `;
+  } else {
+    trackerEl.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No pending refunds.</div>';
+  }
+
+  // Booking list
+  document.getElementById('bookingList').innerHTML = BOOKINGS.map(b => {
+    const statusBadgeClass = b.status === 'active' ? 'status-active' : 'status-cancelled';
+    const refundBadge = b.refundStatus ? `<span class="refund-status-badge status-${b.refundStatus}">Refund: ${b.refundStatus.charAt(0).toUpperCase()+b.refundStatus.slice(1)}</span>` : '';
+    const cancelBtn = b.status === 'active'
+      ? `<button class="btn btn-danger btn-sm" onclick="openCancelModal('${b.id}')">Cancel Booking</button>`
+      : '';
+    const refundInfo = b.refundAmount ? `<div style="font-size:12px;color:var(--green);margin-top:4px">✓ Refund: ₹${b.refundAmount.toLocaleString('en-IN')} (50% — within 24h policy)</div>` : '';
+    return `
+      <div class="booking-item">
+        <div class="booking-info">
+          <div class="booking-route">${b.route} · <span style="font-family:'Space Mono',monospace;font-size:14px">${b.flight}</span></div>
+          <div class="booking-meta">
+            Booking ID: <strong>${b.id}</strong> · ${b.pax} passenger${b.pax>1?'s':''} · Travel: ${new Date(b.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
+          </div>
+          ${refundInfo}
+          <div class="booking-actions">
+            <span class="refund-status-badge ${statusBadgeClass}">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span>
+            ${refundBadge}
+            ${cancelBtn}
+          </div>
+        </div>
+        <div>
+          <div class="booking-amount">₹${b.amount.toLocaleString('en-IN')}</div>
+          <div style="font-size:11px;color:var(--muted);text-align:right;margin-top:4px">total</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openCancelModal(bookingId) {
+  const booking = BOOKINGS.find(b => b.id === bookingId);
+  if (!booking) return;
+
+  // Calculate refund based on timing
+  const hoursUntilFlight = (new Date(booking.date) - Date.now()) / 3600000;
+  const refundPct = hoursUntilFlight > 48 ? 75 : hoursUntilFlight > 24 ? 50 : 25;
+  const refundAmount = Math.round(booking.amount * refundPct / 100);
+
+  const body = document.getElementById('cancelModalBody');
+  body.innerHTML = `
+    <div style="background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px">Cancellation for ${booking.id}</div>
+      <div style="font-size:13px;color:var(--muted)">${booking.route} · ${new Date(booking.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Reason for Cancellation</label>
+      <select class="select" id="cancelReason">
+        <option value="">— Select a reason —</option>
+        <option value="Change of plans">Change of plans</option>
+        <option value="Medical emergency">Medical emergency</option>
+        <option value="Work commitments">Work commitments</option>
+        <option value="Found better price">Found better price</option>
+        <option value="Family emergency">Family emergency</option>
+        <option value="Travel restrictions">Travel restrictions</option>
+        <option value="Visa issues">Visa issues</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="refund-calc">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Refund Calculation</div>
+      <div class="refund-calc-row"><span>Booking amount</span><span>₹${booking.amount.toLocaleString('en-IN')}</span></div>
+      <div class="refund-calc-row"><span>Cancellation policy (${hoursUntilFlight.toFixed(0)}h before flight)</span><span style="color:var(--red)">−${100-refundPct}%</span></div>
+      <div class="refund-calc-row"><span>Airline cancellation fee</span><span style="color:var(--red)">−₹0</span></div>
+      <div class="refund-calc-row total"><span>You will receive</span><span>₹${refundAmount.toLocaleString('en-IN')}</span></div>
+    </div>
+
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:16px">
+      ℹ️ Refund Policy: 75% if 48h+ before departure · 50% if 24–48h · 25% if under 24h. Refund credited within 3–5 business days.
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-danger" style="flex:1" onclick="confirmCancel('${bookingId}',${refundAmount},'${refundPct}')">Confirm Cancellation</button>
+      <button class="btn btn-outline" onclick="closeModal('cancelModal')">Keep Booking</button>
+    </div>
+  `;
+  openModal('cancelModal');
+}
+
+function confirmCancel(bookingId, refundAmount, refundPct) {
+  const reason = document.getElementById('cancelReason').value;
+  if (!reason) { alert('Please select a reason for cancellation.'); return; }
+
+  const booking = BOOKINGS.find(b => b.id === bookingId);
+  if (booking) {
+    booking.status       = 'cancelled';
+    booking.refundStatus = 'pending';
+    booking.refundAmount = refundAmount;
+    booking.cancelReason = reason;
+    booking.cancelledAt  = Date.now();
+  }
+  closeModal('cancelModal');
+  showToastRaw('ok', 'Booking Cancelled', `Refund of ₹${refundAmount.toLocaleString('en-IN')} (${refundPct}%) is being processed.`);
+  renderRefundsPage();
+}
+
+/* ─────────────────────────────────────────────
+   MODALS
+───────────────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', e => { if (e.target === mo) mo.classList.remove('open'); });
+});
+
+/* ─────────────────────────────────────────────
+   SIDEBAR HELPERS
+───────────────────────────────────────────── */
+function updatePricingAlerts() {
+  const alerts = document.getElementById('pricingAlerts');
+  const cards = Object.values(displayedCards);
+  if (cards.length === 0) { alerts.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">Price alerts will appear as flights load.</div>'; return; }
+  const items = cards.map(c => {
+    if (!c._pricing) return null;
+    const p = c._pricing;
+    const fn = c.id.replace('card-','');
+    const change = Math.round((p.multiplier-1)*100);
+    if (Math.abs(change) < 3) return null;
+    const type = change > 0 ? 'surge' : 'drop';
+    return { fn, change, type, price: p.current };
+  }).filter(Boolean);
+  if (items.length === 0) { alerts.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">All prices at baseline.</div>'; return; }
+  alerts.innerHTML = items.map(item => `
+    <div style="background:var(--${item.type==='surge'?'red':'green'}-bg);border:1px solid var(--${item.type==='surge'?'red':'green'}-bd);border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700">${item.fn}</div><div style="font-size:11px;color:var(--muted)">₹${item.price.toLocaleString('en-IN')}</div></div>
+      <span style="font-size:12px;font-weight:700;color:var(--${item.type==='surge'?'red':'green'})">${item.type==='surge'?'↑ +':'↓ '}${Math.abs(item.change)}%</span>
+    </div>
+  `).join('');
+}
+
+function renderQuickChips() {
+  document.getElementById('quickChips').innerHTML = KNOWN_FLIGHTS.map(fn =>
+    `<span class="chip" onclick="quickAdd('${fn}')">${fn}</span>`
+  ).join('');
+}
+function quickAdd(fn) { document.getElementById('flightInput').value = fn; trackFlight(); }
+
+/* ─────────────────────────────────────────────
+   SUMMARY BAR
+───────────────────────────────────────────── */
+function updateSummaryBar() {
+  const counts = { total:0, ON_TIME:0, DELAYED:0, BOARDING:0, DEPARTED:0 };
+  Object.keys(displayedCards).forEach(fn => {
+    counts.total++;
+    const badge = displayedCards[fn].querySelector('.status-badge');
+    if (!badge) return;
+    const text = badge.textContent.trim().toUpperCase().replace(/ /g,'_');
+    if (counts[text] !== undefined) counts[text]++;
+  });
+  const bar = document.getElementById('summaryBar');
+  if (counts.total === 0) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <span class="summary-pill pill-all">✈ ${counts.total} flights</span>
+    ${counts.ON_TIME  ? `<span class="summary-pill pill-ontime">✅ ${counts.ON_TIME} On Time</span>` : ''}
+    ${counts.DELAYED  ? `<span class="summary-pill pill-delayed">⏱ ${counts.DELAYED} Delayed</span>` : ''}
+    ${counts.BOARDING ? `<span class="summary-pill pill-boarding">🚪 ${counts.BOARDING} Boarding</span>` : ''}
+    ${counts.DEPARTED ? `<span class="summary-pill pill-departed">🛫 ${counts.DEPARTED} Departed</span>` : ''}
+  `;
+}
+
+/* ─────────────────────────────────────────────
+   NOTIFICATIONS
+───────────────────────────────────────────── */
+function addSidebarNotification(notification) {
+  const list = document.getElementById('notifList');
+  const empty = list.querySelector('.notif-empty');
+  if (empty) empty.remove();
+  const type = notifTypeClass(notification.notificationType);
+  const time = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const item = document.createElement('div');
+  item.className = `notif-item ${type}`;
+  item.innerHTML = `<div class="notif-header"><span class="notif-flight">${notification.flightNumber}</span><span class="notif-time">${time}</span></div><div class="notif-msg">${notification.message}</div>`;
+  list.insertBefore(item, list.firstChild);
+  notifCount++;
+  while (list.children.length > MAX_NOTIF) list.removeChild(list.lastChild);
+}
+
+function showToast(notification) { showToastRaw(notifTypeClass(notification.notificationType), notification.flightNumber, notification.message); }
+function showToastRaw(type, title, msg) {
+  const container = document.getElementById('toastContainer');
+  while (container.children.length >= MAX_TOAST) container.removeChild(container.lastChild);
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<div class="toast-title">${title}</div><div>${msg}</div>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.classList.add('hiding'); setTimeout(() => toast.remove(), 350); }, 5500);
+}
+
+/* ─────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────── */
+function statusClass(s) {
+  return { ON_TIME:'on-time', DELAYED:'delayed', BOARDING:'boarding', DEPARTED:'departed', LANDED:'landed', CANCELLED:'cancelled' }[s] || 'on-time';
+}
+function statusLabel(s) {
+  return { ON_TIME:'On Time', DELAYED:'Delayed', BOARDING:'Boarding', DEPARTED:'Departed', LANDED:'Landed', CANCELLED:'Cancelled' }[s] || s;
+}
+function notifTypeClass(t) {
+  return { DELAY_UPDATE:'delay', BOARDING_STARTED:'boarding', STATUS_NORMALISED:'ok', DEPARTURE_CHANGE:'info', ETA_UPDATE:'info', CANCELLATION:'delay', PRICE_FREEZE:'price', PRICE_ALERT:'price' }[t] || 'info';
+}
+function formatTime(isoStr) {
+  if (!isoStr) return '—';
+  try { return new Date(isoStr).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+  catch { return isoStr.substring(11,16); }
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+renderQuickChips();
+connectWebSocket();
+
+// Simulate live price updates every 45 seconds
+setInterval(() => {
+  Object.keys(displayedCards).forEach(fn => {
+    const card = displayedCards[fn];
+    if (!card) return;
+    const oldPrice = card._pricing?.current || 0;
+    const f = DEMO_FLIGHTS[fn] || { flightNumber:fn, origin:'DEL', destination:'BOM' };
+    const newPricing = getFlightPrice(f);
+    card._pricing = newPricing;
+    const priceEl = card.querySelector('.price-current');
+    if (priceEl && !frozenPrices.find(fp=>fp.flight===fn)) {
+      priceEl.textContent = `₹${newPricing.current.toLocaleString('en-IN')}`;
+      if (Math.abs(newPricing.current - oldPrice) > 100) {
+        addSidebarNotification({ flightNumber:fn, notificationType:'PRICE_ALERT', message:`Price updated to ₹${newPricing.current.toLocaleString('en-IN')} (${newPricing.current>oldPrice?'+':''}${Math.round((newPricing.current-oldPrice)/oldPrice*100)}%)` });
+      }
+    }
+  });
+  updatePricingAlerts();
+}, 45000);
+
+// Update frozen price timers every minute
+setInterval(() => {
+  frozenPrices.forEach((fp, i) => {
+    if (Date.now() > fp.expiresAt) { frozenPrices.splice(i, 1); showToastRaw('info', 'Price Freeze Expired', `Your frozen price for ${fp.flight} has expired.`); }
+  });
+  updateFrozenPricesSidebar();
+}, 60000);
+
+/* ══════════════════════════════════════════════════════════════
+   REVIEWS & RATINGS ENGINE
+══════════════════════════════════════════════════════════════ */
+
+const REVIEW_COLORS = ['#dc2626','#2563eb','#7c3aed','#16a34a','#b45309','#0891b2','#be185d'];
+let reviewStarRating = 0;
+let subMetricRatings = {};
+let currentReviewFilter = 'all';
+let reviewPhotos = ['🏖️','🏨','🍽️','🛎️','✈️','🌅'];
+let addedPhotos  = [];
+
+const HOTEL_SUBJECTS  = ['The Leela Palace, Delhi','ITC Maurya, Delhi','Hyatt Regency, Mumbai','Lemon Tree Premier, BLR','Treebo Trend, Mumbai'];
+const FLIGHT_SUBJECTS = ['AI302 – Delhi→Mumbai','6E456 – Mumbai→BLR','SG101 – Delhi→BLR','UK820 – BLR→Hyderabad','GO251 – Kochi→Delhi'];
+
+const SUB_METRICS_HOTEL  = ['Cleanliness','Comfort','Location','Service','Value for Money','Amenities'];
+const SUB_METRICS_FLIGHT = ['Punctuality','Cabin Crew','Seat Comfort','Food Quality','In-flight Entertainment','Boarding'];
+
+// Seed reviews data
+const REVIEWS_DB = [
+  {
+    id:'rv1', type:'hotel', subject:'The Leela Palace, Delhi', author:'Priya S.', authorId:'PS',
+    color:'#dc2626', verified:true, date:'Apr 20, 2026', rating:5,
+    title:'Absolute luxury — worth every rupee!',
+    body:'Stayed for 3 nights and it was an unforgettable experience. The staff went above and beyond, the rooms are immaculate, and the food at Jamavar was exceptional. The rooftop pool at sunset is a must. Highly recommend the Royal Suite upgrade.',
+    helpful:42, flagged:false, replies:[
+      { author:'Hotel Leela', color:'#7c3aed', text:'Thank you so much Priya! We are thrilled to have made your stay special. Looking forward to welcoming you again.', date:'Apr 21, 2026' }
+    ],
+    photos:['🏊','🛏️','🍽️'],
+    subMetrics:{ Cleanliness:5, Comfort:5, Location:5, Service:5, 'Value for Money':4, Amenities:5 }
+  },
+  {
+    id:'rv2', type:'flight', subject:'AI302 – Delhi→Mumbai', author:'Arjun M.', authorId:'AM',
+    color:'#2563eb', verified:true, date:'Apr 18, 2026', rating:4,
+    title:'Great flight, minor delay at boarding',
+    body:'Overall a pleasant journey. The cabin crew were friendly and the seat was comfortable. Boarding took 20 minutes longer than scheduled, but once in the air everything was smooth. Meal service was good — the vegetarian option was actually tasty for once.',
+    helpful:18, flagged:false, replies:[],
+    photos:['🛫','🍱'],
+    subMetrics:{ Punctuality:3, 'Cabin Crew':5, 'Seat Comfort':4, 'Food Quality':4, 'In-flight Entertainment':3, Boarding:3 }
+  },
+  {
+    id:'rv3', type:'hotel', subject:'Hyatt Regency, Mumbai', author:'Sneha R.', authorId:'SR',
+    color:'#16a34a', verified:false, date:'Apr 15, 2026', rating:3,
+    title:'Decent but overpriced for what you get',
+    body:'The location is excellent — walking distance from BKC. However the room felt dated and the AC was noisy all night. Breakfast was impressive with a wide spread. I expected more for a 5-star property at this price point.',
+    helpful:9, flagged:false, replies:[
+      { author:'Sneha K.', color:'#b45309', text:'I had a similar experience! The location saves it though.', date:'Apr 16, 2026' },
+    ],
+    photos:['🌃'],
+    subMetrics:{ Cleanliness:4, Comfort:3, Location:5, Service:3, 'Value for Money':2, Amenities:3 }
+  },
+  {
+    id:'rv4', type:'flight', subject:'6E456 – Mumbai→BLR', author:'Rahul T.', authorId:'RT',
+    color:'#b45309', verified:true, date:'Apr 12, 2026', rating:5,
+    title:'IndiGo never disappoints — on-time perfection',
+    body:'Left exactly on time, arrived 10 minutes early. The aircraft was new and clean. Crew was professional and efficient. No frills but exactly what you need for a 90-minute hop. Best budget carrier in India by far.',
+    helpful:31, flagged:false, replies:[],
+    photos:['✈️','🌤️'],
+    subMetrics:{ Punctuality:5, 'Cabin Crew':5, 'Seat Comfort':4, 'Food Quality':3, 'In-flight Entertainment':3, Boarding:5 }
+  },
+  {
+    id:'rv5', type:'hotel', subject:'Lemon Tree Premier, BLR', author:'Kavya P.', authorId:'KP',
+    color:'#7c3aed', verified:false, date:'Apr 8, 2026', rating:2,
+    title:'Disappointing — misleading photos online',
+    body:'The photos on the website looked much better than what we got. Our room faced a construction site with noise from 7am. The WiFi was spotty and housekeeping only came once in two days despite requests. Will not be returning.',
+    helpful:5, flagged:true, replies:[],
+    photos:[],
+    subMetrics:{ Cleanliness:3, Comfort:2, Location:2, Service:2, 'Value for Money':1, Amenities:2 }
+  },
+  {
+    id:'rv6', type:'flight', subject:'SG101 – Delhi→BLR', author:'Vikram N.', authorId:'VN',
+    color:'#0891b2', verified:true, date:'Apr 3, 2026', rating:4,
+    title:'SpiceJet came through — pleasant surprise',
+    body:'Had low expectations but the flight was genuinely good. The new seat covers were comfortable and the crew was warm. We were served a proper hot meal for under 2h flight which was unexpected. Landed 15 min early.',
+    helpful:14, flagged:false, replies:[
+      { author:'Priya S.', color:'#dc2626', text:'I had the same experience on SG103 last month! They have really improved.', date:'Apr 4, 2026' }
+    ],
+    photos:['🌯','💺'],
+    subMetrics:{ Punctuality:5, 'Cabin Crew':4, 'Seat Comfort':4, 'Food Quality':4, 'In-flight Entertainment':3, Boarding:4 }
+  },
+];
+
+let reviewsData = [...REVIEWS_DB];
+let filteredReviews = [...reviewsData];
+
+function initReviewsPage() {
+  updateReviewSubjects();
+  renderRatingSummary();
+  buildStarFilterBar();
+  applyReviewFilters();
+}
+
+function toggleWriteReview() {
+  const form = document.getElementById('writeReviewForm');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) form.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function updateReviewSubjects() {
+  const type = document.getElementById('reviewSubjectType').value;
+  const sel  = document.getElementById('reviewSubjectName');
+  const list = type === 'hotel' ? HOTEL_SUBJECTS : FLIGHT_SUBJECTS;
+  sel.innerHTML = list.map(s => `<option>${s}</option>`).join('');
+  buildSubMetrics(type);
+}
+
+function buildSubMetrics(type) {
+  const metrics = type === 'hotel' ? SUB_METRICS_HOTEL : SUB_METRICS_FLIGHT;
+  subMetricRatings = {};
+  document.getElementById('subMetricsGrid').innerHTML = metrics.map(m => `
+    <div class="sub-metric-item">
+      <div class="sub-metric-label">${m}</div>
+      <div class="sub-metric-stars">
+        ${[1,2,3,4,5].map(i => `<span class="sub-star" onclick="setSubStar('${m}',${i},this.parentNode)">★</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function setReviewStar(n) {
+  reviewStarRating = n;
+  const stars = document.querySelectorAll('#starPicker .star-pick');
+  stars.forEach((s,i) => s.classList.toggle('lit', i < n));
+  const labels = ['','Terrible','Poor','Average','Good','Excellent'];
+  document.getElementById('starLabel').textContent = labels[n] + ' — ' + n + '/5';
+}
+
+function setSubStar(metric, n, container) {
+  subMetricRatings[metric] = n;
+  [...container.querySelectorAll('.sub-star')].forEach((s,i) => s.classList.toggle('lit', i < n));
+}
+
+function addDemoPhoto() {
+  const emojis = ['🏖️','🏨','🍽️','🛎️','✈️','🌅','🏊','🌃','🛏️','🌅'];
+  const pick = emojis[Math.floor(Math.random() * emojis.length)];
+  addedPhotos.push(pick);
+  const row = document.getElementById('photoPreviewRow');
+  const thumb = document.createElement('div');
+  thumb.className = 'photo-thumb';
+  const idx = addedPhotos.length - 1;
+  thumb.innerHTML = `${pick}<div class="remove-photo" onclick="removePhoto(${idx},this.parentNode)">✕</div>`;
+  row.appendChild(thumb);
+}
+
+function removePhoto(idx, el) { addedPhotos.splice(idx,1); el.remove(); }
+
+function submitReview() {
+  if (!reviewStarRating) { showToastRaw('info','Rating required','Please select a star rating before submitting.'); return; }
+  const title = document.getElementById('reviewTitle').value.trim();
+  const body  = document.getElementById('reviewBody').value.trim();
+  if (!title || !body) { showToastRaw('info','Incomplete','Please add a title and review text.'); return; }
+
+  const type    = document.getElementById('reviewSubjectType').value;
+  const subject = document.getElementById('reviewSubjectName').value;
+  const newReview = {
+    id: 'rv' + Date.now(), type, subject, author:'You (demo_user)', authorId:'YU',
+    color: '#dc2626', verified:true, date:'Just now', rating:reviewStarRating,
+    title, body, helpful:0, flagged:false, replies:[], photos:[...addedPhotos],
+    subMetrics:{...subMetricRatings}
+  };
+  reviewsData.unshift(newReview);
+  toggleWriteReview();
+  applyReviewFilters();
+  renderRatingSummary();
+  showToastRaw('ok','Review Submitted','Your review has been posted. Thank you!');
+  // Reset form
+  reviewStarRating = 0;
+  document.getElementById('reviewTitle').value = '';
+  document.getElementById('reviewBody').value  = '';
+  document.getElementById('photoPreviewRow').innerHTML = '';
+  addedPhotos = [];
+  document.querySelectorAll('#starPicker .star-pick').forEach(s => s.classList.remove('lit'));
+  document.getElementById('starLabel').textContent = 'Click to rate';
+}
+
+function filterReviews(type, btn) {
+  currentReviewFilter = type;
+  document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  applyReviewFilters();
+  renderRatingSummary();
+}
+
+function applyReviewFilters() {
+  const sort   = document.getElementById('reviewSort').value;
+  const search = document.getElementById('reviewSearch').value.toLowerCase();
+  const starF  = [...document.querySelectorAll('.star-filter-btn.active')].map(b => parseInt(b.dataset.star));
+
+  filteredReviews = reviewsData
+    .filter(r => currentReviewFilter === 'all' || r.type === currentReviewFilter)
+    .filter(r => !search || r.title.toLowerCase().includes(search) || r.body.toLowerCase().includes(search) || r.author.toLowerCase().includes(search))
+    .filter(r => !starF.length || starF.includes(r.rating));
+
+  if (sort === 'newest')  filteredReviews.sort((a,b) => b.id.localeCompare(a.id));
+  if (sort === 'helpful') filteredReviews.sort((a,b) => b.helpful - a.helpful);
+  if (sort === 'highest') filteredReviews.sort((a,b) => b.rating - a.rating);
+  if (sort === 'lowest')  filteredReviews.sort((a,b) => a.rating - b.rating);
+
+  renderReviewsList();
+}
+
+function buildStarFilterBar() {
+  document.getElementById('starFilterBar').innerHTML = [5,4,3,2,1].map(s =>
+    `<button class="star-filter-btn" data-star="${s}" onclick="toggleStarFilter(this)">${s}★</button>`
+  ).join('');
+}
+
+function toggleStarFilter(btn) {
+  btn.classList.toggle('active');
+  applyReviewFilters();
+}
+
+function renderRatingSummary() {
+  const reviews = currentReviewFilter === 'all' ? reviewsData : reviewsData.filter(r => r.type === currentReviewFilter);
+  if (!reviews.length) { document.getElementById('ratingSummary').innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No reviews yet.</div>'; return; }
+  const avg = reviews.reduce((s,r) => s+r.rating,0) / reviews.length;
+  const counts = [0,0,0,0,0];
+  reviews.forEach(r => counts[r.rating-1]++);
+  document.getElementById('ratingSummary').innerHTML = `
+    <div class="rs-big-score">
+      <div class="rs-num">${avg.toFixed(1)}</div>
+      <div class="rs-stars">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5-Math.round(avg))}</div>
+      <div class="rs-count">${reviews.length} review${reviews.length!==1?'s':''}</div>
+    </div>
+    <div class="rs-bars">
+      ${[5,4,3,2,1].map(n => `
+        <div class="rs-bar-row">
+          <div class="rs-bar-label">${n}</div>
+          <div class="rs-bar-track"><div class="rs-bar-fill" style="width:${reviews.length?counts[n-1]/reviews.length*100:0}%"></div></div>
+          <div class="rs-bar-cnt">${counts[n-1]}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderReviewsList() {
+  const el = document.getElementById('reviewsList');
+  if (!filteredReviews.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px">🔍</div>No reviews match your filters.</div>';
+    return;
+  }
+  el.innerHTML = filteredReviews.map(r => buildReviewCard(r)).join('');
+}
+
+function buildReviewCard(r) {
+  const stars     = '★'.repeat(r.rating) + '☆'.repeat(5-r.rating);
+  const typeLabel = r.type === 'hotel' ? '🏨 Hotel' : '✈️ Flight';
+  const photosHTML = r.photos.length ? `
+    <div class="rc-photos">
+      ${r.photos.map(p => `<div class="rc-photo"><div class="rc-photo-inner">${p}</div><div class="rc-photo-label">Photo</div></div>`).join('')}
+    </div>` : '';
+  const subMet = Object.entries(r.subMetrics || {});
+  const subMetHTML = subMet.length ? `
+    <div class="rc-metrics">
+      ${subMet.map(([k,v]) => `<span class="rc-metric"><strong>${k}:</strong> ${'★'.repeat(v)}</span>`).join('')}
+    </div>` : '';
+  const repliesHTML = r.replies.length ? `
+    <div class="rc-replies">
+      ${r.replies.map(rep => `
+        <div class="reply-item">
+          <div class="reply-author" style="color:${rep.color||'var(--blue)'}">${rep.author} · <span style="font-weight:400;color:var(--muted)">${rep.date}</span></div>
+          ${rep.text}
+        </div>
+      `).join('')}
+    </div>` : '';
+
+  if (r.flagged) return `
+    <div class="review-card flagged" id="rc-${r.id}">
+      <div class="flagged-overlay">
+        🚩 This review has been flagged for moderation and is pending review.
+        <button style="margin-left:10px;background:none;border:none;cursor:pointer;font-size:11px;color:var(--blue);text-decoration:underline" onclick="unflagReview('${r.id}')">Restore</button>
+      </div>
+    </div>`;
+
+  return `
+    <div class="review-card" id="rc-${r.id}">
+      <div class="rc-header">
+        <div class="rc-user">
+          <div class="rc-avatar" style="background:${r.color}">${r.authorId}</div>
+          <div>
+            <div class="rc-name">${r.author}</div>
+            <div class="rc-meta">${r.date} · ${r.subject}</div>
+          </div>
+        </div>
+        <div class="rc-right">
+          <div class="rc-stars">${stars}</div>
+          <div class="rc-subject-tag">${typeLabel}</div>
+        </div>
+      </div>
+      <div class="rc-title">${r.title}</div>
+      <div class="rc-body">${r.body}</div>
+      ${photosHTML}
+      ${subMetHTML}
+      ${repliesHTML}
+      <div class="reply-input-wrap" id="replyWrap-${r.id}" style="display:none">
+        <input class="reply-input" id="replyInput-${r.id}" placeholder="Write a reply…">
+        <button class="btn btn-primary btn-sm" onclick="postReply('${r.id}')">Post</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleReplyBox('${r.id}')">Cancel</button>
+      </div>
+      <div class="rc-actions">
+        <button class="rc-action-btn helpful" id="helpful-${r.id}" onclick="markHelpful('${r.id}')">👍 Helpful (${r.helpful})</button>
+        <button class="rc-action-btn" onclick="toggleReplyBox('${r.id}')">💬 Reply</button>
+        <button class="rc-action-btn flag" id="flag-${r.id}" onclick="flagReview('${r.id}')">🚩 Flag</button>
+        ${r.verified ? '<div class="rc-verified">✅ Verified Booking</div>' : ''}
+      </div>
+    </div>`;
+}
+
+function markHelpful(id) {
+  const r = reviewsData.find(x => x.id === id);
+  if (!r) return;
+  r.helpful++;
+  const btn = document.getElementById(`helpful-${id}`);
+  if (btn) { btn.textContent = `👍 Helpful (${r.helpful})`; btn.classList.add('active'); }
+}
+
+function flagReview(id) {
+  const r = reviewsData.find(x => x.id === id);
+  if (!r) return;
+  r.flagged = true;
+  applyReviewFilters();
+  showToastRaw('info','Review Flagged','This review has been sent to moderation. Thank you.');
+}
+
+function unflagReview(id) {
+  const r = reviewsData.find(x => x.id === id);
+  if (r) r.flagged = false;
+  applyReviewFilters();
+}
+
+function toggleReplyBox(id) {
+  const wrap = document.getElementById(`replyWrap-${id}`);
+  if (wrap) { wrap.style.display = wrap.style.display === 'none' ? 'flex' : 'none'; wrap.querySelector('input')?.focus(); }
+}
+
+function postReply(id) {
+  const input = document.getElementById(`replyInput-${id}`);
+  const text  = input?.value.trim();
+  if (!text) return;
+  const r = reviewsData.find(x => x.id === id);
+  if (!r) return;
+  r.replies.push({ author:'You (demo_user)', color:'#dc2626', text, date:'Just now' });
+  applyReviewFilters();
+  showToastRaw('ok','Reply Posted','Your reply has been added.');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RECOMMENDATIONS ENGINE
+══════════════════════════════════════════════════════════════ */
+
+let travelerType     = 'beach';
+let activeFeedback   = new Set();
+let recsDismissed    = new Set();
+let recsHelpful      = new Set();
+let recsIrrelevant   = new Set();
+let recsAccuracy     = 87;
+
+const TRAVELER_PROFILES = {
+  beach:     { label:'Beach Explorer',   history:'12 trips · Goa, Maldives, Kerala…',    emoji:'🏖' },
+  mountain:  { label:'Mountain Trekker', history:'8 trips · Manali, Leh, Darjeeling…',   emoji:'⛰' },
+  city:      { label:'City Hopper',      history:'15 trips · Mumbai, Singapore, Dubai…',  emoji:'🏙' },
+  culture:   { label:'Culture Seeker',   history:'10 trips · Rajasthan, Hampi, Bagan…',  emoji:'🏛' },
+  adventure: { label:'Adventure Seeker', history:'6 trips · Rishikesh, Coorg, Nepal…',   emoji:'🧗' },
+  luxury:    { label:'Luxury Traveller', history:'9 trips · Maldives, Dubai, Paris…',     emoji:'💎' },
+};
+
+const DEST_RECS = {
+  beach:     [
+    { name:'Bali, Indonesia', sub:'Tropical paradise with pristine beaches', price:'₹32,000', priceSub:'return incl. hotel', match:95, category:'dest', why:'You booked Goa 3x and rated beach stays 5★. Bali has similar vibes at 40% better value.',  visual:'🌴🌊☀️', bg:'linear-gradient(135deg,#0369a1,#0ea5e9,#38bdf8)' },
+    { name:'Maldives',        sub:'Overwater bungalows, crystal lagoons',    price:'₹78,000', priceSub:'4 nights all-incl.',  match:91, category:'dest', why:'Your last 2 vacations were beach destinations. The Maldives is your style — rated 4.8★ by similar users.', visual:'🏝️💙🐠', bg:'linear-gradient(135deg,#0c4a6e,#0369a1,#7dd3fc)' },
+    { name:'Kerala Backwaters',sub:'Houseboat serenity, spice trails',       price:'₹18,500', priceSub:'3 nights pkg.',       match:88, category:'dest', why:'Based on your Kerala search history and beach preference — highly rated by users like you.', visual:'🛶🌿🌺', bg:'linear-gradient(135deg,#166534,#16a34a,#4ade80)' },
+  ],
+  mountain:  [
+    { name:'Manali, Himachal', sub:'Snow peaks, river valleys, adventure',   price:'₹14,000', priceSub:'3 nights pkg.',       match:94, category:'dest', why:'Your trekking history and mountain preference makes Manali a perfect match for the season.', visual:'⛰️❄️🏔️', bg:'linear-gradient(135deg,#1e3a5f,#2563eb,#60a5fa)' },
+    { name:'Leh-Ladakh',       sub:'High altitude desert, monasteries',      price:'₹28,000', priceSub:'5 nights pkg.',       match:89, category:'dest', why:'Collaborative match — 78% of users with your profile love Ladakh. 4.9★ average rating.', visual:'🏔️🌄🦅', bg:'linear-gradient(135deg,#1c1917,#44403c,#78716c)' },
+  ],
+  city:      [
+    { name:'Singapore',        sub:'Modern city, food paradise, Gardens',    price:'₹45,000', priceSub:'4 nights incl. flights', match:93, category:'dest', why:'Your city-hopping pattern and Singapore search history — 96% of city travellers return here.', visual:'🌆🌃✨', bg:'linear-gradient(135deg,#1e1b4b,#3730a3,#818cf8)' },
+    { name:'Dubai, UAE',       sub:'Luxury malls, desert safaris, skyline',  price:'₹52,000', priceSub:'5 nights pkg.',       match:87, category:'dest', why:'You viewed Dubai hotels twice last month. High popularity with city travellers from India.', visual:'🏙️🌇🕌', bg:'linear-gradient(135deg,#78350f,#b45309,#fbbf24)' },
+  ],
+  culture:   [
+    { name:'Rajasthan Circuit', sub:'Jaipur, Jodhpur, Udaipur magic',        price:'₹22,000', priceSub:'7 nights road trip',  match:96, category:'dest', why:'Your heritage site visits and culture ratings indicate this is your ideal trip.', visual:'🏰🐪🌅', bg:'linear-gradient(135deg,#7c2d12,#c2410c,#f97316)' },
+    { name:'Bagan, Myanmar',   sub:'Ancient temples, hot air balloons',      price:'₹38,000', priceSub:'4 nights incl.',      match:82, category:'dest', why:'Trending among culture seekers. Similar users gave it 4.7★ for historical richness.', visual:'🛕🎈🌄', bg:'linear-gradient(135deg,#451a03,#92400e,#d97706)' },
+  ],
+  adventure: [
+    { name:'Rishikesh',        sub:'White water rafting, yoga capital',       price:'₹8,500', priceSub:'2 nights pkg.',       match:97, category:'dest', why:'You searched rafting twice and your adventure profile is a strong match.', visual:'🚣🏔️🧘', bg:'linear-gradient(135deg,#14532d,#15803d,#4ade80)' },
+    { name:'Nepal – Everest BC',sub:'Trek to base camp, Himalayan glory',   price:'₹65,000', priceSub:'12 nights trek',      match:84, category:'dest', why:'Rated highest by adventure seekers. Collaborative match from 500+ similar profiles.', visual:'🏔️🦅🎒', bg:'linear-gradient(135deg,#0c4a6e,#0284c7,#38bdf8)' },
+  ],
+  luxury:    [
+    { name:'Paris, France',    sub:'Michelin dining, couture, Eiffel',       price:'₹1,10,000', priceSub:'5 nights luxury',  match:93, category:'dest', why:'Your luxury hotel bookings and 5★ reviews align strongly with Paris luxury experiences.', visual:'🗼🥐🍷', bg:'linear-gradient(135deg,#1e1b4b,#4338ca,#818cf8)' },
+    { name:'Maldives Overwater',sub:'Private villa, butler service, reefs',  price:'₹1,45,000', priceSub:'4 nights OWB',    match:90, category:'dest', why:'Top recommendation for luxury travellers — your previous resort stays match this perfectly.', visual:'🏝️💎🐬', bg:'linear-gradient(135deg,#0c4a6e,#0369a1,#38bdf8)' },
+  ],
+};
+
+const FLIGHT_RECS = [
+  { name:'AI302 · Delhi → Mumbai', sub:'Tomorrow · 07:30 · 2h 15m', price:'₹4,800', priceSub:'1 stop', match:88, category:'flight', why:'Your most frequent route. Price is 12% below your average booking price — good time to book.', visual:'✈️🌆', bg:'linear-gradient(135deg,#dc2626,#f87171)' },
+  { name:'6E456 · Mumbai → Goa',   sub:'May 5 · 09:15 · 1h 10m',   price:'₹3,200', priceSub:'Direct',  match:92, category:'flight', why:'You searched Goa 4 times recently. Direct flight, lowest price in 30 days — act now!',           visual:'✈️🌴', bg:'linear-gradient(135deg,#0369a1,#38bdf8)' },
+  { name:'AI131 · Delhi → Bali',   sub:'May 12 · 23:40 · 6h 50m',  price:'₹18,500', priceSub:'1 stop', match:85, category:'flight', why:'Bali is your #1 recommended destination. This is the most affordable connection available.',    visual:'✈️🏝️', bg:'linear-gradient(135deg,#16a34a,#4ade80)' },
+];
+
+const HOTEL_RECS = [
+  { name:'Taj Hotels, Goa',          sub:'Beach resort · 5★ · Calangute', price:'₹12,800', priceSub:'/night', match:94, category:'hotel', why:'You rated Taj properties 5★ twice. Goa beach resorts match your travel DNA perfectly.',            visual:'🏖️🏨', bg:'linear-gradient(135deg,#1e40af,#3b82f6)' },
+  { name:'The Oberoi, Udaipur',      sub:'Heritage lake resort · 5★',     price:'₹22,000', priceSub:'/night', match:88, category:'hotel', why:'Users with your beach profile often discover and love Udaipur lake properties. 4.9★ avg.',        visual:'🏰🌅', bg:'linear-gradient(135deg,#7c2d12,#f97316)' },
+  { name:'Le Meridien, Kochi',       sub:'City hotel · 4★ · Waterfront',  price:'₹7,500',  priceSub:'/night', match:81, category:'hotel', why:'You searched Kerala recently. This is the top-rated hotel in Kochi among travellers like you.',   visual:'🌊🏨', bg:'linear-gradient(135deg,#166534,#22c55e)' },
+];
+
+const FEEDBACK_ITEMS = [
+  { id:'more-beach',  icon:'🏖️', label:'More Beach',    sub:'Show coastal destinations' },
+  { id:'more-luxury', icon:'💎', label:'More Luxury',   sub:'Upgrade recommendations' },
+  { id:'budget',      icon:'💰', label:'Budget Focus',  sub:'Under ₹10k/night' },
+  { id:'solo',        icon:'🧍', label:'Solo Travel',   sub:'Solo-friendly options' },
+  { id:'family',      icon:'👨‍👩‍👧', label:'Family Trips', sub:'Kid-friendly' },
+  { id:'weekend',     icon:'📅', label:'Weekends',      sub:'Fri–Sun getaways' },
+  { id:'international',icon:'🌍',label:'International', sub:'Beyond India' },
+  { id:'domestic',   icon:'🇮🇳', label:'Domestic',     sub:'Explore India' },
+];
+
+const ALGO_SIGNALS = [
+  { label:'Booking History',        weight:82 },
+  { label:'Search Patterns',        weight:67 },
+  { label:'Review Ratings',         weight:74 },
+  { label:'Collaborative Filtering',weight:58 },
+  { label:'Seasonal Trends',        weight:45 },
+  { label:'Price Sensitivity',      weight:63 },
+];
+
+function initRecsPage() {
+  const profile = TRAVELER_PROFILES[travelerType];
+  document.getElementById('travelerTypeLabel').textContent = profile.label;
+  document.getElementById('historySnippet').textContent    = profile.history;
+  document.getElementById('recsAccuracyNum').textContent   = recsAccuracy + '%';
+  buildFeedbackGrid();
+  buildAlgoPanel();
+  renderAllRecs();
+}
+
+function setTravelerType(type, chip) {
+  travelerType = type;
+  document.querySelectorAll('.traveler-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  const profile = TRAVELER_PROFILES[type];
+  document.getElementById('travelerTypeLabel').textContent = profile.label;
+  document.getElementById('historySnippet').textContent    = profile.history;
+  recsDismissed.clear();
+  renderAllRecs();
+  showToastRaw('ok','Profile Updated',`Recommendations personalised for ${profile.label} travellers.`);
+}
+
+function buildFeedbackGrid() {
+  document.getElementById('feedbackLoopGrid').innerHTML = FEEDBACK_ITEMS.map(f => `
+    <div class="fl-item ${activeFeedback.has(f.id)?'selected':''}" onclick="toggleFeedback('${f.id}',this)">
+      <div class="fl-item-icon">${f.icon}</div>
+      <div class="fl-item-label">${f.label}</div>
+      <div class="fl-item-sub">${f.sub}</div>
+    </div>
+  `).join('');
+}
+
+function toggleFeedback(id, el) {
+  activeFeedback.has(id) ? activeFeedback.delete(id) : activeFeedback.add(id);
+  el.classList.toggle('selected');
+}
+
+function applyFeedbackLoop() {
+  recsAccuracy = Math.min(99, recsAccuracy + Math.floor(activeFeedback.size * 1.5 + 2));
+  document.getElementById('recsAccuracyNum').textContent = recsAccuracy + '%';
+  recsDismissed.clear();
+  renderAllRecs();
+  showToastRaw('ok','Profile Refined',`Accuracy improved to ${recsAccuracy}%. Recommendations updated!`);
+}
+
+function buildAlgoPanel() {
+  document.getElementById('algoPanel').innerHTML = ALGO_SIGNALS.map(s => `
+    <div class="algo-row">
+      <span>${s.label}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="algo-bar-wrap"><div class="algo-bar" style="width:${s.weight}%"></div></div>
+        <span style="font-size:12px;font-weight:600;width:32px;text-align:right">${s.weight}%</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAllRecs() {
+  const dests = DEST_RECS[travelerType] || DEST_RECS.beach;
+  document.getElementById('destRecsGrid').innerHTML  = dests.filter(r => !recsDismissed.has(r.name)).map(r => buildRecCard(r)).join('') || '<div style="color:var(--muted);font-size:13px;padding:20px 0">No more recommendations. Refresh to load more.</div>';
+  document.getElementById('flightRecsGrid').innerHTML = FLIGHT_RECS.filter(r => !recsDismissed.has(r.name)).map(r => buildRecCard(r)).join('') || '<div style="color:var(--muted);font-size:13px">No more flight recommendations.</div>';
+  document.getElementById('hotelRecsGrid').innerHTML  = HOTEL_RECS.filter(r => !recsDismissed.has(r.name)).map(r => buildRecCard(r)).join('') || '<div style="color:var(--muted);font-size:13px">No more hotel recommendations.</div>';
+}
+
+function buildRecCard(r) {
+  const catClass = { dest:'cat-dest', flight:'cat-flight', hotel:'cat-hotel', package:'cat-package' }[r.category];
+  const catLabel = { dest:'🌏 Destination', flight:'✈️ Flight', hotel:'🏨 Hotel', package:'📦 Package' }[r.category];
+  const helpVoted = recsHelpful.has(r.name);
+  const noVoted   = recsIrrelevant.has(r.name);
+  const safeId = r.name.replace(/[^a-zA-Z0-9]/g,'_');
+  return `
+    <div class="rec-card" id="rec-${safeId}">
+      <div class="rec-visual" style="background:${r.bg};display:flex;align-items:center;justify-content:center;font-size:48px;letter-spacing:8px">
+        ${r.visual}
+        <div class="rec-category"><span class="rec-cat-badge ${catClass}">${catLabel}</span></div>
+        <button class="why-btn" onclick="toggleWhy('why-${safeId}',event)">💡 Why?</button>
+        <div class="why-tooltip" id="why-${safeId}">${r.why}</div>
+      </div>
+      <div class="rec-info">
+        <div class="rec-name">${r.name}</div>
+        <div class="rec-sub">${r.sub}</div>
+        <div class="rec-price-row">
+          <div>
+            <div class="rec-price">${r.price}</div>
+            <div class="rec-price-sub">${r.priceSub}</div>
+          </div>
+          <div class="rec-match">🎯 ${r.match}% match</div>
+        </div>
+        <div class="rec-accuracy-bar"><div class="rec-accuracy-fill" style="width:${r.match}%"></div></div>
+        <div class="rec-feedback" style="margin-top:10px">
+          <button class="rec-fb-btn helpful ${helpVoted?'voted-helpful':''}" onclick="recFeedback('${r.name}','helpful',this,'${safeId}')">👍 ${helpVoted?'Helpful!':'Helpful'}</button>
+          <button class="rec-fb-btn not-relevant ${noVoted?'voted-no':''}" onclick="recFeedback('${r.name}','no',this,'${safeId}')">👎 ${noVoted?'Noted':'Not for me'}</button>
+          <button class="rec-fb-btn" style="flex:none;padding:7px 10px" onclick="dismissRec('${r.name}','${safeId}')">✕</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleWhy(id, e) {
+  e.stopPropagation();
+  document.querySelectorAll('.why-tooltip').forEach(t => { if (t.id !== id) t.classList.remove('show'); });
+  document.getElementById(id)?.classList.toggle('show');
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.why-tooltip').forEach(t => t.classList.remove('show'));
+});
+
+function recFeedback(name, type, btn, safeId) {
+  if (type === 'helpful') {
+    recsHelpful.add(name); recsIrrelevant.delete(name);
+    btn.textContent = '👍 Helpful!'; btn.classList.add('voted-helpful');
+    const noBtn = btn.nextElementSibling;
+    if (noBtn) { noBtn.textContent = '👎 Not for me'; noBtn.classList.remove('voted-no'); }
+    recsAccuracy = Math.min(99, recsAccuracy + 1);
+    document.getElementById('recsAccuracyNum').textContent = recsAccuracy + '%';
+    showToastRaw('ok','Feedback Received','Great! We\'ll show more recommendations like this.');
+  } else {
+    recsIrrelevant.add(name); recsHelpful.delete(name);
+    btn.textContent = '👎 Noted'; btn.classList.add('voted-no');
+    const helpBtn = btn.previousElementSibling;
+    if (helpBtn) { helpBtn.textContent = '👍 Helpful'; helpBtn.classList.remove('voted-helpful'); }
+    showToastRaw('info','Feedback Received','Got it — we\'ll refine your recommendations.');
+  }
+}
+
+function dismissRec(name, safeId) {
+  recsDismissed.add(name);
+  const el = document.getElementById(`rec-${safeId}`);
+  if (el) { el.style.transition = 'opacity .3s,transform .3s'; el.style.opacity='0'; el.style.transform='scale(.95)'; setTimeout(()=>{ el.remove(); },320); }
+}
+
+function refreshRecs() {
+  recsDismissed.clear();
+  recsAccuracy = Math.min(99, recsAccuracy + 2);
+  document.getElementById('recsAccuracyNum').textContent = recsAccuracy + '%';
+  renderAllRecs();
+  showToastRaw('info','Refreshed','Recommendations updated with latest data.');
+}
+</script>
+</body>
+</html>
